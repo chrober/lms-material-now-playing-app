@@ -100,7 +100,7 @@ The `applicationId` is `com.chrober.lmsmaterial.nowplaying`. The release workflo
 ## App artwork
 
 The **Lyrion Now Playing** launcher icon and Fire TV / Android TV banner use the
-approved waveform-and-display design. The icon's familiar waveform is paired with
+approved waveform-and-display design. Its ten-bar waveform geometry comes from [Craig Drummond's MIT-licensed Material app](https://github.com/CDrummond/lms-material-app/blob/master/lms-material/src/main/res/drawable/ic_launcher_foreground.xml), recolored with our existing gradient and paired with
 a visual Now Playing progress indicator; the app itself remains view-only.
 
 - Android 5.1–7.1 and newer legacy launchers: density-specific `mipmap-*/ic_launcher.webp`

@@ -4,9 +4,15 @@ on:
   push:
     tags:
       - 'v*'
+    branches:
+      - 'publish/v*'
 
 permissions:
   contents: write
+
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   release:
@@ -31,13 +37,29 @@ jobs:
         with:
           gradle-version: '9.9.1'
           cache-provider: basic
+      - name: Resolve release tag
+        id: release_tag
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/heads/publish/v* ]]; then
+            release_tag="${GITHUB_REF_NAME#publish/}"
+          else
+            release_tag="$GITHUB_REF_NAME"
+          fi
+          [[ "$release_tag" =~ ^v[0-9]+[.][0-9]+[.][0-9]+$ ]] || {
+            echo "::error::Invalid release tag $release_tag"
+            exit 1
+          }
+          echo "tag=$release_tag" >> "$GITHUB_OUTPUT"
       - name: Validate release version
+        env:
+          RELEASE_TAG: ${{ steps.release_tag.outputs.tag }}
         shell: bash
         run: |
           version=$(sed -nE "s/^[[:space:]]*versionName '([^']+)'.*$/\1/p" app/build.gradle)
           test -n "$version"
-          test "$GITHUB_REF_NAME" = "v$version" || {
-            echo "::error::Tag $GITHUB_REF_NAME does not match versionName $version"
+          test "$RELEASE_TAG" = "v$version" || {
+            echo "::error::Tag $RELEASE_TAG does not match versionName $version"
             exit 1
           }
       - name: Verify signing secrets
@@ -67,16 +89,21 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: gradle --no-daemon :app:assembleRelease
       - name: Verify signed APK
+        env:
+          RELEASE_TAG: ${{ steps.release_tag.outputs.tag }}
         run: |
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose app/build/outputs/apk/release/app-release.apk
-          cp app/build/outputs/apk/release/app-release.apk "lms-material-now-playing-${GITHUB_REF_NAME}.apk"
-          sha256sum "lms-material-now-playing-${GITHUB_REF_NAME}.apk" > "lms-material-now-playing-${GITHUB_REF_NAME}.apk.sha256"
+          cp app/build/outputs/apk/release/app-release.apk "lms-material-now-playing-${RELEASE_TAG}.apk"
+          sha256sum "lms-material-now-playing-${RELEASE_TAG}.apk" > "lms-material-now-playing-${RELEASE_TAG}.apk.sha256"
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release_tag.outputs.tag }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            "lms-material-now-playing-${GITHUB_REF_NAME}.apk" \
-            "lms-material-now-playing-${GITHUB_REF_NAME}.apk.sha256" \
-            --title "Material Now Playing $GITHUB_REF_NAME" \
+          gh release create "$RELEASE_TAG" \
+            "lms-material-now-playing-${RELEASE_TAG}.apk" \
+            "lms-material-now-playing-${RELEASE_TAG}.apk.sha256" \
+            --title "Lyrion Now Playing $RELEASE_TAG" \
+            --target "$GITHUB_SHA" \
+            --prerelease \
             --generate-notes
