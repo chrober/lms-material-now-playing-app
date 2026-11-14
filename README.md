@@ -72,7 +72,7 @@ The reported API level of the 2018 Fire TV Stick 4K should be **25**.
 
 ## Development
 
-Prerequisites: JDK 17, Android SDK platform 35/build tools 35.0.0, Gradle 8.7. No third-party Android runtime dependencies.
+Prerequisites: JDK 17, Gradle 9.9.1, Android SDK platform 35/build tools 35.0.0, Gradle 9.9.1. No third-party Android runtime dependencies.
 
 ```sh
 gradle :app:lintDebug
