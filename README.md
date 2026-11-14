@@ -97,6 +97,17 @@ The `applicationId` is `com.chrober.lmsmaterial.nowplaying`. The release workflo
 - This is a **view-only UX**, not an authorization or network security boundary. It expects a trusted home network.
 - HTTP cleartext is permitted because Lyrion installations commonly run on local port 9000. Use HTTPS if your server is configured accordingly.
 
+## App artwork
+
+The **Lyrion Now Playing** launcher icon and Fire TV / Android TV banner use the
+approved waveform-and-display design. The icon's familiar waveform is paired with
+a visual Now Playing progress indicator; the app itself remains view-only.
+
+- Android 5.1–7.1 and newer legacy launchers: density-specific `mipmap-*/ic_launcher.webp`
+- Android 8.0+ adaptive launchers: `mipmap-anydpi-v26/ic_launcher.xml`
+- TV banner: `drawable-nodpi/tv_banner.webp` (640 × 360, 16:9)
+- Artwork sources and regeneration instructions: [Branding](docs/BRANDING.md)
+
 ## License and acknowledgements
 
 MIT License — see [LICENSE](LICENSE).
