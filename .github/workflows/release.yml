@@ -46,7 +46,7 @@ jobs:
           else
             release_tag="$GITHUB_REF_NAME"
           fi
-          [[ "$release_tag" =~ ^v[0-9]+\\.[0-9]+\\.[0-9]+$ ]] || {
+          [[ "$release_tag" =~ ^v[0-9]+[.][0-9]+[.][0-9]+$ ]] || {
             echo "::error::Invalid release tag $release_tag"
             exit 1
           }
