@@ -27,7 +27,7 @@ The gear is a native, top-left overlay and **not part of the web page**. It fade
 
 ## Supported Android versions
 
-`minSdk 22` (Android 5.1), `targetSdk 32`, `compileSdk 35`. Android **API 25** is explicitly supported at build level.
+`minSdk 22` (Android 5.1), `targetSdk 35`, `compileSdk 35`. Android **API 25** is explicitly supported at build level.
 
 - **Amazon Fire TV Stick 4K, first generation (2018), ASIN B07PW9VBK5**: model `AFTMM`, Fire OS 6 / Android 7.1 (API 25).
 - Android TVs and Android Fire TV devices at API 22+.
