@@ -302,7 +302,7 @@ public final class MainActivity extends Activity {
         coloredToolbarsCheckbox.setOnCheckedChangeListener((control, checked) -> {
             if (checked != prefs.getBoolean(KEY_COLORED_TOOLBARS, false)) {
                 prefs.edit().putBoolean(KEY_COLORED_TOOLBARS, checked).apply();
-                appearanceChanged(0);
+                appearanceChanged(3);
             }
         });
         add(content, coloredToolbarsCheckbox, 0, 16);
@@ -366,8 +366,9 @@ public final class MainActivity extends Activity {
             focusAfterAppearanceChange = -1;
             scroll.post(() -> {
                 scroll.scrollTo(0, scrollY);
-                Spinner focus = target == 1 ? colorUsageSpinner
-                        : target == 2 ? colorSpinner : themeSpinner;
+                View focus = target == 1 ? colorUsageSpinner
+                        : target == 2 ? colorSpinner
+                        : target == 3 ? coloredToolbarsCheckbox : themeSpinner;
                 if (focus != null) focus.requestFocus();
                 else if (themeSpinner != null) themeSpinner.requestFocus();
             });
@@ -843,6 +844,12 @@ public final class MainActivity extends Activity {
         String theme = prefs.getString(KEY_THEME, MaterialTheme.DEFAULT_THEME);
         String color = prefs.getString(KEY_COLOR, MaterialTheme.DEFAULT_COLOR);
         int mode = prefs.getInt(KEY_COLOR_USAGE, MaterialTheme.COLOR_COVER);
+        String active = MaterialTheme.effectiveTheme(theme, darkSystem);
+        boolean light = "light".equals(active) || active.contains("/light/");
+        // Use a matching framework theme for native spinners, popup menus and
+        // dialogs even when the Material Skin choice differs from system mode.
+        setTheme(light ? android.R.style.Theme_Material_Light_NoActionBar
+                : android.R.style.Theme_Material_NoActionBar);
         MaterialTheme.Palette palette = MaterialTheme.palette(theme, color, mode, darkSystem);
         BG = palette.background;
         TEXT = palette.text;
