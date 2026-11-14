@@ -5,6 +5,9 @@ import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
+import android.content.res.Configuration;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -53,6 +56,14 @@ public final class MainActivity extends Activity {
     private static final String KEY_SERVER = "server";
     private static final String KEY_PLAYER = "player_id";
     private static final String KEY_KEEP_AWAKE = "keep_awake";
+    private static final String KEY_THEME = "material_theme";
+    private static final String KEY_COLOR = "material_color";
+    private static final String KEY_COLOR_USAGE = "material_color_usage";
+    private static final String KEY_COLORED_TOOLBARS = "material_colored_toolbars";
+    private static final String KEY_SAMPLED_PROFILE = "material_sampled_profile";
+    private static final String KEY_SAMPLED_BG = "material_sampled_background";
+    private static final String KEY_SAMPLED_TEXT = "material_sampled_text";
+    private static final String KEY_SAMPLED_ACCENT = "material_sampled_accent";
 
     private static final long GEAR_VISIBLE_MS = 5000L;
     private static final long GEAR_FADE_IN_MS = 230L;
@@ -79,11 +90,26 @@ public final class MainActivity extends Activity {
     private TextView playerStatus;
     private CheckBox awakeCheckbox;
     private Button startButton;
+    private ScrollView settingsScroll;
+    private Spinner themeSpinner;
+    private Spinner colorUsageSpinner;
+    private Spinner colorSpinner;
+    private CheckBox coloredToolbarsCheckbox;
+    private final List<MaterialTheme.Option> themeOptions = MaterialTheme.builtInThemes();
+    private final List<MaterialTheme.ColorOption> colorOptions = MaterialTheme.builtInColors();
+    private String themeCatalogServer = "";
+    private String themeCatalogPending = "";
+    private String playersLoadedServer = "";
+    private String draftServer;
+    private String draftPlayerId;
+    private Boolean draftKeepAwake;
+    private int draftScrollY;
+    private int focusAfterAppearanceChange = -1;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
-        resolveThemePalette();
         prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        resolveThemePalette();
         DisplayManager manager = (DisplayManager) getSystemService(DISPLAY_SERVICE);
         supportsAwake = getWindow() != null && manager != null
                 && manager.getDisplays().length != 0;
@@ -160,17 +186,30 @@ public final class MainActivity extends Activity {
     }
 
     private void showSettings(String error) {
+        resolveThemePalette();
         requestSerial++;
         handler.removeCallbacks(hideGear);
         gearButton = null;
         displayVisible = false;
         updateWakeFlag();
         setFullscreen(false);
+        getWindow().setStatusBarColor(BG);
+        getWindow().setNavigationBarColor(BG);
+        int flags = View.SYSTEM_UI_FLAG_VISIBLE;
+        if (Color.red(BG)*0.2126 + Color.green(BG)*0.7152
+                + Color.blue(BG)*0.0722 > 150) {
+            if (android.os.Build.VERSION.SDK_INT >= 23)
+                flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            if (android.os.Build.VERSION.SDK_INT >= 26)
+                flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+        }
+        getWindow().getDecorView().setSystemUiVisibility(flags);
         destroyBrowser();
 
         ScrollView scroll = new ScrollView(this);
         scroll.setBackgroundColor(BG);
         scroll.setFillViewport(true);
+        settingsScroll = scroll;
         FrameLayout body = new FrameLayout(this);
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
@@ -192,7 +231,7 @@ public final class MainActivity extends Activity {
             add(content, label(error, 16, Color.rgb(255, 170, 148), false), 0, 14);
 
         content.addView(label("LYRION SERVER", 15, ACCENT, true));
-        serverInput = input(prefs.getString(KEY_SERVER, ""),
+        serverInput = input(draftServer != null ? draftServer : prefs.getString(KEY_SERVER, ""),
                 "192.168.1.30:9000 or https://lyrion.local");
         add(content, framedControl(serverInput), 5, 6);
         Button discoveryButton = button("Find Lyrion servers");
@@ -232,14 +271,52 @@ public final class MainActivity extends Activity {
         add(content, refreshButton, 0, 20);
         refreshButton.setOnClickListener(v -> loadPlayers());
 
+        content.addView(label("APPEARANCE", 15, ACCENT, true));
+        add(content, label("Theme", 15, SUBTEXT, false), 8, 0);
+        themeSpinner = new Spinner(this);
+        add(content, framedControl(themeSpinner), 4, 8);
+        bindThemeSpinner();
+        add(content, label("Color", 15, SUBTEXT, false), 3, 0);
+        colorUsageSpinner = new Spinner(this);
+        add(content, framedControl(colorUsageSpinner), 4, 8);
+        bindColorUsageSpinner();
+        if (prefs.getInt(KEY_COLOR_USAGE, MaterialTheme.COLOR_COVER) == MaterialTheme.COLOR_FIXED) {
+            add(content, label("Accent color", 15, SUBTEXT, false), 3, 0);
+            colorSpinner = new Spinner(this);
+            add(content, framedControl(colorSpinner), 4, 8);
+            bindColorSpinner();
+        } else {
+            colorSpinner = null;
+            add(content, label("Accent follows Material Skin's current "
+                    + (prefs.getInt(KEY_COLOR_USAGE, MaterialTheme.COLOR_COVER) == MaterialTheme.COLOR_PLAYER
+                        ? "player." : "album cover."), 14, SUBTEXT, false), 0, 8);
+        }
+        coloredToolbarsCheckbox = new CheckBox(this);
+        coloredToolbarsCheckbox.setText("Color toolbars");
+        coloredToolbarsCheckbox.setTextColor(TEXT);
+        coloredToolbarsCheckbox.setTextSize(17);
+        coloredToolbarsCheckbox.setButtonTintList(ColorStateList.valueOf(ACCENT));
+        coloredToolbarsCheckbox.setPadding(dp(10), dp(8), dp(10), dp(8));
+        coloredToolbarsCheckbox.setBackground(focusBackground());
+        coloredToolbarsCheckbox.setChecked(prefs.getBoolean(KEY_COLORED_TOOLBARS, false));
+        coloredToolbarsCheckbox.setOnCheckedChangeListener((control, checked) -> {
+            if (checked != prefs.getBoolean(KEY_COLORED_TOOLBARS, false)) {
+                prefs.edit().putBoolean(KEY_COLORED_TOOLBARS, checked).apply();
+                appearanceChanged(3);
+            }
+        });
+        add(content, coloredToolbarsCheckbox, 0, 16);
+
         content.addView(label("DISPLAY", 15, ACCENT, true));
         awakeCheckbox = new CheckBox(this);
         awakeCheckbox.setText("Keep screen awake");
         awakeCheckbox.setTextColor(TEXT);
         awakeCheckbox.setTextSize(17);
+        awakeCheckbox.setButtonTintList(ColorStateList.valueOf(ACCENT));
         awakeCheckbox.setBackground(focusBackground());
         awakeCheckbox.setPadding(dp(10), dp(8), dp(10), dp(8));
-        awakeCheckbox.setChecked(prefs.getBoolean(KEY_KEEP_AWAKE, true));
+        awakeCheckbox.setChecked(draftKeepAwake != null
+                ? draftKeepAwake : prefs.getBoolean(KEY_KEEP_AWAKE, true));
         awakeCheckbox.setEnabled(supportsAwake);
         add(content, awakeCheckbox, 5, 4);
         add(content, label(supportsAwake
@@ -267,16 +344,174 @@ public final class MainActivity extends Activity {
                 playerOptions.clear();
                 showPlayerEntries();
                 playerStatus.setText("Refresh players for this server.");
+                playersLoadedServer = "";
+                themeCatalogServer = "";
             }
             @Override public void afterTextChanged(Editable s) { }
         });
         showPlayerEntries();
-        if (ServerAddress.normalize(serverInput.getText().toString()) != null) {
-            loadPlayers();
-        } else {
+        String settingsServer = ServerAddress.normalize(serverInput.getText().toString());
+        if (settingsServer != null) {
+            if (!settingsServer.equals(playersLoadedServer) || playerOptions.isEmpty()) {
+                loadPlayers();
+            }
+            loadMaterialCatalog(settingsServer);
+        } else if (draftServer == null) {
             discoveryButton.requestFocus();
             discoveryButton.performClick();
         }
+        if (focusAfterAppearanceChange >= 0) {
+            int target = focusAfterAppearanceChange;
+            int scrollY = draftScrollY;
+            focusAfterAppearanceChange = -1;
+            scroll.post(() -> {
+                scroll.scrollTo(0, scrollY);
+                View focus = target == 1 ? colorUsageSpinner
+                        : target == 2 ? colorSpinner
+                        : target == 3 ? coloredToolbarsCheckbox : themeSpinner;
+                if (focus != null) focus.requestFocus();
+                else if (themeSpinner != null) themeSpinner.requestFocus();
+            });
+        }
+    }
+
+    private <T> ArrayAdapter<T> themedSpinnerAdapter(List<T> items) {
+        ArrayAdapter<T> adapter = new ArrayAdapter<T>(this,
+                android.R.layout.simple_spinner_item, items) {
+            @Override public View getView(int position, View convertView, ViewGroup parent) {
+                TextView view = (TextView) super.getView(position, convertView, parent);
+                view.setTextColor(TEXT);
+                view.setTextSize(17);
+                return view;
+            }
+        };
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        return adapter;
+    }
+
+    private void bindThemeSpinner() {
+        ArrayAdapter<MaterialTheme.Option> adapter = themedSpinnerAdapter(themeOptions);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        themeSpinner.setAdapter(adapter);
+        String wanted = prefs.getString(KEY_THEME, MaterialTheme.DEFAULT_THEME);
+        boolean found = false;
+        for (MaterialTheme.Option option : themeOptions)
+            if (wanted.equals(option.key)) { found = true; break; }
+        if (!found && MaterialTheme.safeKey(wanted)) {
+            themeOptions.add(new MaterialTheme.Option(wanted, wanted));
+            adapter.notifyDataSetChanged();
+        }
+        for (int i=0; i<themeOptions.size(); i++)
+            if (wanted.equals(themeOptions.get(i).key)) { themeSpinner.setSelection(i); break; }
+        themeSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
+                String key = themeOptions.get(pos).key;
+                if (!key.equals(prefs.getString(KEY_THEME, MaterialTheme.DEFAULT_THEME))) {
+                    prefs.edit().putString(KEY_THEME, key).apply();
+                    appearanceChanged(0);
+                }
+            }
+            @Override public void onNothingSelected(AdapterView<?> parent) { }
+        });
+    }
+
+    private void bindColorUsageSpinner() {
+        List<String> modes = new ArrayList<>();
+        modes.add("For all players");
+        modes.add("From current cover (all players)");
+        modes.add("Per player");
+        ArrayAdapter<String> adapter = themedSpinnerAdapter(modes);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        colorUsageSpinner.setAdapter(adapter);
+        int wanted = prefs.getInt(KEY_COLOR_USAGE, MaterialTheme.COLOR_COVER);
+        colorUsageSpinner.setSelection(Math.max(0, Math.min(2, wanted)));
+        colorUsageSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
+                if (pos != prefs.getInt(KEY_COLOR_USAGE, MaterialTheme.COLOR_COVER)) {
+                    prefs.edit().putInt(KEY_COLOR_USAGE, pos).apply();
+                    appearanceChanged(1);
+                }
+            }
+            @Override public void onNothingSelected(AdapterView<?> parent) { }
+        });
+    }
+
+    private void bindColorSpinner() {
+        ArrayAdapter<MaterialTheme.ColorOption> adapter = themedSpinnerAdapter(colorOptions);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        colorSpinner.setAdapter(adapter);
+        String wanted = prefs.getString(KEY_COLOR, MaterialTheme.DEFAULT_COLOR);
+        boolean found = false;
+        for (MaterialTheme.ColorOption option : colorOptions)
+            if (wanted.equals(option.key)) { found = true; break; }
+        if (!found && MaterialTheme.safeKey(wanted)) {
+            colorOptions.add(new MaterialTheme.ColorOption(wanted, wanted, "#1976d2", "#82b1ff"));
+            adapter.notifyDataSetChanged();
+        }
+        for (int i=0; i<colorOptions.size(); i++)
+            if (wanted.equals(colorOptions.get(i).key)) { colorSpinner.setSelection(i); break; }
+        colorSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
+                String key = colorOptions.get(pos).key;
+                if (!key.equals(prefs.getString(KEY_COLOR, MaterialTheme.DEFAULT_COLOR))) {
+                    prefs.edit().putString(KEY_COLOR, key).apply();
+                    appearanceChanged(2);
+                }
+            }
+            @Override public void onNothingSelected(AdapterView<?> parent) { }
+        });
+    }
+
+    /** Re-create controls to reflect the new native palette, without losing unsaved server edits. */
+    private void appearanceChanged(int focus) {
+        if (serverInput != null) draftServer = serverInput.getText().toString();
+        if (playerSpinner != null) {
+            int pos = playerSpinner.getSelectedItemPosition();
+            if (pos > 0 && pos <= playerOptions.size()) draftPlayerId = playerOptions.get(pos - 1).id;
+        }
+        if (awakeCheckbox != null) draftKeepAwake = awakeCheckbox.isChecked();
+        draftScrollY = settingsScroll == null ? 0 : settingsScroll.getScrollY();
+        focusAfterAppearanceChange = focus;
+        handler.post(() -> {
+            if (!displayVisible && !isFinishing()) showSettings(null);
+        });
+    }
+
+    private void loadMaterialCatalog(String server) {
+        if (server.equals(themeCatalogServer) || server.equals(themeCatalogPending)) return;
+        themeCatalogPending = server;
+        MaterialSkinCatalog.fetch(server, result -> {
+            if (!server.equals(themeCatalogPending) || isFinishing()) return;
+            themeCatalogPending = "";
+            themeCatalogServer = server;
+            themeOptions.clear();
+            themeOptions.addAll(MaterialTheme.mergedThemes(result.themes));
+            colorOptions.clear();
+            colorOptions.addAll(MaterialTheme.builtInColors());
+            for (MaterialTheme.ColorOption extra : result.colors) {
+                boolean exists = false;
+                for (MaterialTheme.ColorOption standard : colorOptions)
+                    if (standard.key.equals(extra.key)) { exists = true; break; }
+                if (!exists) colorOptions.add(extra);
+            }
+            if (!prefs.contains(KEY_THEME) && result.defaults != null) {
+                String theme = result.defaults.optString("theme", MaterialTheme.DEFAULT_THEME);
+                String color = result.defaults.optString("color", MaterialTheme.DEFAULT_COLOR);
+                boolean colored = theme.endsWith("-colored");
+                if (colored) theme = theme.substring(0, theme.length() - "-colored".length());
+                if (MaterialTheme.safeKey(theme) && MaterialTheme.safeKey(color)) {
+                    prefs.edit().putString(KEY_THEME, theme).putString(KEY_COLOR, color)
+                            .putBoolean(KEY_COLORED_TOOLBARS, colored).apply();
+                    appearanceChanged(0);
+                    return;
+                }
+            }
+            if (!displayVisible && themeSpinner != null && server.equals(
+                    ServerAddress.normalize(serverInput.getText().toString()))) {
+                bindThemeSpinner();
+                if (colorSpinner != null) bindColorSpinner();
+            }
+        });
     }
 
     private void showPlayerEntries() {
@@ -290,6 +525,13 @@ public final class MainActivity extends Activity {
         playerSpinner.setAdapter(adapter);
         playerSpinner.setEnabled(!playerOptions.isEmpty());
         if (startButton != null) startButton.setEnabled(false);
+        String wanted = draftPlayerId != null ? draftPlayerId : prefs.getString(KEY_PLAYER, "");
+        for (int i=0; i<playerOptions.size(); i++) {
+            if (playerOptions.get(i).id.equals(wanted)) {
+                playerSpinner.setSelection(i + 1);
+                break;
+            }
+        }
         playerSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
                 if (startButton != null) startButton.setEnabled(pos > 0 && pos <= playerOptions.size());
@@ -319,19 +561,18 @@ public final class MainActivity extends Activity {
                 return;
             }
             playerOptions.addAll(players);
+            playersLoadedServer = server;
             showPlayerEntries();
             if (players.isEmpty()) {
                 playerStatus.setText("No players found on this server.");
                 return;
             }
             playerStatus.setText(players.size() + " player(s) available");
-            if (server.equals(ServerAddress.normalize(prefs.getString(KEY_SERVER, "")))) {
-                String saved = prefs.getString(KEY_PLAYER, "");
-                for (int i = 0; i < players.size(); i++) {
-                    if (saved.equals(players.get(i).id)) {
-                        playerSpinner.setSelection(i + 1);
-                        break;
-                    }
+            String saved = draftPlayerId != null ? draftPlayerId : prefs.getString(KEY_PLAYER, "");
+            for (int i = 0; i < players.size(); i++) {
+                if (saved.equals(players.get(i).id)) {
+                    playerSpinner.setSelection(i + 1);
+                    break;
                 }
             }
         });
@@ -350,11 +591,17 @@ public final class MainActivity extends Activity {
                 .putString(KEY_PLAYER, playerOptions.get(pos - 1).id)
                 .putBoolean(KEY_KEEP_AWAKE, supportsAwake && awakeCheckbox.isChecked())
                 .apply();
+        draftServer = null;
+        draftPlayerId = null;
+        draftKeepAwake = null;
         showDisplay();
     }
 
     private void showDisplay() {
         if (!configured()) { showSettings("Configure a server and player first."); return; }
+        draftServer = null;
+        draftPlayerId = null;
+        draftKeepAwake = null;
         requestSerial++;
         displayVisible = true;
         handler.removeCallbacks(hideGear);
@@ -364,12 +611,17 @@ public final class MainActivity extends Activity {
 
         String server = ServerAddress.normalize(prefs.getString(KEY_SERVER, ""));
         String player = prefs.getString(KEY_PLAYER, "");
-        activeUrl = server + "/material/np-only?player=" + Uri.encode(player);
+        String theme = prefs.getString(KEY_THEME, MaterialTheme.DEFAULT_THEME);
+        String color = prefs.getString(KEY_COLOR, MaterialTheme.DEFAULT_COLOR);
+        if (!MaterialTheme.safeKey(color)) color = MaterialTheme.DEFAULT_COLOR;
+        activeUrl = server + "/material/np-only?player=" + Uri.encode(player)
+                + "&theme=" + MaterialTheme.urlTheme(theme,
+                    prefs.getBoolean(KEY_COLORED_TOOLBARS, false)) + "," + color;
 
         FrameLayout root = new FrameLayout(this);
-        root.setBackgroundColor(Color.BLACK);
+        root.setBackgroundColor(BG);
         browser = new WebView(this);
-        browser.setBackgroundColor(Color.BLACK);
+        browser.setBackgroundColor(BG);
         browser.setFocusable(false);
         browser.setFocusableInTouchMode(false);
         browser.setOnTouchListener((v, event) -> true); // Prevent any WebView interaction.
@@ -396,7 +648,22 @@ public final class MainActivity extends Activity {
         root.addView(loading, new FrameLayout.LayoutParams(-1, -1));
         browser.setWebViewClient(new WebViewClient() {
             @Override public void onPageFinished(WebView view, String url) {
-                loading.setVisibility(View.GONE);
+                if (browser != view || !displayVisible) return;
+                // Theme/color are set via Material Skin's supported URL parameter.
+                // The separate "colorUsage" preference must be stored in the
+                // same origin as Material Skin, then loaded once more if changed.
+                String javascript = "(function(){try{" +
+                        "var key='lms-material::colorUsage';" +
+                        "var expected='" + prefs.getInt(KEY_COLOR_USAGE, MaterialTheme.COLOR_COVER) + "';" +
+                        "if(localStorage.getItem(key)!==expected){" +
+                        "localStorage.setItem(key,expected);location.reload();return true;}" +
+                        "return false;}catch(e){return false;}})()";
+                view.evaluateJavascript(javascript, result -> {
+                    if (browser != view || !displayVisible) return;
+                    if ("true".equals(result)) return;
+                    loading.setVisibility(View.GONE);
+                    sampleWebPalette(view, null);
+                });
             }
             @Override public void onReceivedError(WebView view, WebResourceRequest request,
                                                   WebResourceError error) {
@@ -427,7 +694,7 @@ public final class MainActivity extends Activity {
         gearButton.setScaleY(0.94f);
         gearButton.setTranslationY(-dp(8));
         gearButton.setVisibility(View.GONE);
-        gearButton.setOnClickListener(v -> showSettings(null));
+        gearButton.setOnClickListener(v -> openSettingsFromDisplay());
         gearButton.setOnFocusChangeListener((v, focused) -> {
             shape.setStroke(focused ? dp(2) : 0, ACCENT);
             if (focused) revealGear();
@@ -492,7 +759,7 @@ public final class MainActivity extends Activity {
         int code = event.getKeyCode();
         boolean down = event.getAction() == KeyEvent.ACTION_DOWN;
         if (code == KeyEvent.KEYCODE_MENU) {
-            if (down && event.getRepeatCount() == 0) showSettings(null);
+            if (down && event.getRepeatCount() == 0) openSettingsFromDisplay();
             return true;
         }
         if (code == KeyEvent.KEYCODE_DPAD_UP || code == KeyEvent.KEYCODE_DPAD_DOWN
@@ -507,7 +774,7 @@ public final class MainActivity extends Activity {
                 || code == KeyEvent.KEYCODE_BUTTON_A) {
             if (down && event.getRepeatCount() == 0) {
                 if (gearButton != null && gearButton.getVisibility() == View.VISIBLE) {
-                    showSettings(null);
+                    openSettingsFromDisplay();
                 } else {
                     revealGear();
                     gearButton.requestFocus();
@@ -572,21 +839,84 @@ public final class MainActivity extends Activity {
     }
 
     private void resolveThemePalette() {
-        BG = themeColor(android.R.attr.colorBackground, Color.BLACK);
-        TEXT = themeColor(android.R.attr.textColorPrimary, Color.WHITE);
-        SUBTEXT = themeColor(android.R.attr.textColorSecondary, TEXT);
-        ACCENT = themeColor(android.R.attr.colorAccent, TEXT);
+        boolean darkSystem = (getResources().getConfiguration().uiMode
+                & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+        String theme = prefs.getString(KEY_THEME, MaterialTheme.DEFAULT_THEME);
+        String color = prefs.getString(KEY_COLOR, MaterialTheme.DEFAULT_COLOR);
+        int mode = prefs.getInt(KEY_COLOR_USAGE, MaterialTheme.COLOR_COVER);
+        String active = MaterialTheme.effectiveTheme(theme, darkSystem);
+        boolean light = "light".equals(active) || active.contains("/light/");
+        // Use a matching framework theme for native spinners, popup menus and
+        // dialogs even when the Material Skin choice differs from system mode.
+        setTheme(light ? android.R.style.Theme_Material_Light_NoActionBar
+                : android.R.style.Theme_Material_NoActionBar);
+        MaterialTheme.Palette palette = MaterialTheme.palette(theme, color, mode, darkSystem);
+        BG = palette.background;
+        TEXT = palette.text;
+        SUBTEXT = palette.secondary;
+        ACCENT = palette.accent;
+        String signature = theme + "|" + color + "|" + mode;
+        if (signature.equals(prefs.getString(KEY_SAMPLED_PROFILE, ""))) {
+            BG = prefs.getInt(KEY_SAMPLED_BG, BG);
+            TEXT = prefs.getInt(KEY_SAMPLED_TEXT, TEXT);
+            ACCENT = prefs.getInt(KEY_SAMPLED_ACCENT, ACCENT);
+        }
     }
 
-    private int themeColor(int attribute, int fallback) {
-        android.content.res.TypedArray attributes =
-                getTheme().obtainStyledAttributes(new int[]{attribute});
-        try {
-            ColorStateList colors = attributes.getColorStateList(0);
-            return colors == null ? fallback : colors.getDefaultColor();
-        } finally {
-            attributes.recycle();
+    /** Read actual Material Skin computed colors, including custom themes and cover colors. */
+    private void sampleWebPalette(WebView view, Runnable completion) {
+        if (view == null) { if (completion != null) completion.run(); return; }
+        String javascript = "(function(){try{" +
+                "var root=getComputedStyle(document.documentElement);" +
+                "var app=document.querySelector('.lms-app')||document.body;" +
+                "var bg=root.getPropertyValue('--std-background-color').trim();" +
+                "var accent=root.getPropertyValue('--accent-color').trim();" +
+                "var text=getComputedStyle(app).color;" +
+                "return [bg,text,accent].join('|');" +
+                "}catch(e){return '';}})()";
+        view.evaluateJavascript(javascript, raw -> {
+            try {
+                String value = new JSONArray("[" + raw + "]").getString(0);
+                String[] parts = value.split("\\|", -1);
+                if (parts.length == 3 && !parts[0].isEmpty()) {
+                    int sampledBg = cssColor(parts[0], BG);
+                    int sampledText = cssColor(parts[1], TEXT);
+                    int sampledAccent = cssColor(parts[2], ACCENT);
+                    String signature = prefs.getString(KEY_THEME, MaterialTheme.DEFAULT_THEME)
+                            + "|" + prefs.getString(KEY_COLOR, MaterialTheme.DEFAULT_COLOR)
+                            + "|" + prefs.getInt(KEY_COLOR_USAGE, MaterialTheme.COLOR_COVER);
+                    prefs.edit().putString(KEY_SAMPLED_PROFILE, signature)
+                            .putInt(KEY_SAMPLED_BG, sampledBg)
+                            .putInt(KEY_SAMPLED_TEXT, sampledText)
+                            .putInt(KEY_SAMPLED_ACCENT, sampledAccent).apply();
+                }
+            } catch (Exception ignored) { /* Never block settings if JavaScript fails. */ }
+            if (completion != null) completion.run();
+        });
+    }
+
+    /** CSS computed colors can be #RRGGBB, rgb(...) or rgba(...). */
+    private int cssColor(String css, int fallback) {
+        String value = css.trim();
+        if (value.startsWith("#")) return MaterialTheme.parseHex(value, fallback);
+        if (value.startsWith("rgb(") || value.startsWith("rgba(")) {
+            try {
+                String[] channels = value.substring(value.indexOf('(')+1, value.indexOf(')')).split(",");
+                if (channels.length >= 3) return Color.rgb(
+                        Integer.parseInt(channels[0].trim()),
+                        Integer.parseInt(channels[1].trim()),
+                        Integer.parseInt(channels[2].trim()));
+            } catch (RuntimeException ignored) { }
         }
+        return fallback;
+    }
+
+    private void openSettingsFromDisplay() {
+        WebView current = browser;
+        if (!displayVisible || current == null) { showSettings(null); return; }
+        sampleWebPalette(current, () -> {
+            if (browser == current && displayVisible) showSettings(null);
+        });
     }
 
     /** High-contrast, clearly focused buttons, including on Fire TV's D-pad. */

@@ -13,19 +13,39 @@ Intended for Fire TV / Android TV, tablets, phones and other **Android-based** d
 - No extra Lyrion plugin, fork of Material Skin, account or playback device required.
 - Native settings and overlay that work with touchscreens, mouse and TV remote controls.
 
-### System appearance and remote focus
+### Original Material Skin themes and colors
 
-The native settings screen follows the device's **light or dark UI mode**, when the
-device exposes one. On Android 12+ (API 31+) it uses Android's wallpaper-derived
-dynamic **accent and background** colors; on older devices it inherits the
-platform Material theme's palette. Fire OS 6 and other older TV devices may not
-offer an OS-level light/dark switch or dynamic wallpaper colors.
+The native settings include the same **Theme** choices as Material Skin:
+**Automatic, Light, Dark, Black and Lyrion**, plus any installed
+user-defined themes returned by the connected server's
+`material-skin themes platform:android` read-only JSON-RPC command.
+There is deliberately no additional "Material Skin default" choice.
 
-Settings buttons provide a **solid accent fill, contrast-aware text and a prominent
-outline when focused** with a D-pad, as well as a pressed state on touch.
-Server and player fields and the keep-awake checkbox also display an outline
-when focused. The Material Skin Now Playing web page and launcher artwork
-are not re-themed.
+The **Color** selector offers the three Material Skin modes:
+**For all players** (pick one of the original Material Skin colors, including
+server-defined custom colors), **From current cover (all players)** and
+**Per player**. It also offers Material Skin's **Color toolbars** option.
+
+Selections are saved locally for this Android application and passed to
+Material Skin's **original CSS** using its documented `theme` URL parameter,
+and its browser-local `lms-material::colorUsage` preference. They affect both
+the embedded Now Playing page and the surrounding native settings.
+Native colors use the original built-in palettes and, when available, colors
+read back from the running Material Skin page (including cover-derived colors
+and custom CSS). The settings can still open if the server is temporarily
+unreachable. No other browsers' or players' settings are changed.
+
+"Automatic" tracks the device's light/dark mode where supported.
+As on the original Material Skin, a Fire OS version without a system dark-mode
+setting cannot provide automatic light/dark switching.
+The default initial choices are Material Skin's **Dark** theme and
+**From current cover** color behavior; server-provided defaults are read when
+the server is first configured.
+
+Buttons retain a highly visible solid-color fill, contrasting text and strong
+outline when focused using a TV remote, plus a pressed state for touch.
+The launcher artwork and the read-only character of the Now Playing display
+are unchanged.
 
 ### Settings access and gear animation
 
