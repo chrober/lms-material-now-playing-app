@@ -1,6 +1,6 @@
 # Publishing signed Android releases
 
-A release is published **only** when a tag beginning with `v` is pushed (for example `v0.1.0`). The tag must match the version declared as `versionName` in `app/build.gradle`.
+A release is published when a tag beginning with `v` is pushed (for example `v0.1.0`). For GitHub-only publication without a local tag push, a push to `publish/vX.Y.Z` also builds the signed APK and creates the matching tag and GitHub Release. Both routes require the tag to match `versionName` in `app/build.gradle`.
 
 ## 1. Create and safeguard your release keystore
 
@@ -41,8 +41,8 @@ Secrets are made available only to the release job; pull request CI does not use
 1. Confirm Android CI on `main` is green.
 2. Update both `versionCode` (integer, must increase for updates) and `versionName` (e.g. `0.1.0`) in `app/build.gradle`.
 3. Merge any necessary updates to `main`.
-4. Tag the desired commit: `git tag v0.1.0` and `git push origin v0.1.0`.
-5. Watch the **Publish Android release** workflow. It checks the tag/version match, lints/tests, builds and verifies the signed APK, and uploads it as `lms-material-now-playing-vX.Y.Z.apk` together with a matching `.sha256` file to a GitHub Release.
+4. Tag the desired commit: `git tag v0.1.0` and `git push origin v0.1.0`. Alternatively, push a dedicated branch named `publish/v0.1.0` at the chosen source commit to build and publish directly via GitHub Actions; the workflow creates the release tag at that commit.
+5. Watch the **Publish Android release** workflow. It checks the tag/version match, lints/tests, builds and verifies the signed APK, and uploads it as `lms-material-now-playing-vX.Y.Z.apk` together with a matching `.sha256` file to a GitHub **pre-release**. The title is `Lyrion Now Playing vX.Y.Z`.
 
 **Do not tag a release until the four signing secrets have been configured.** If a job fails, inspect the workflow log; the publish step runs only after successful verification.
 

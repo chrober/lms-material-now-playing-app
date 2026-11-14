@@ -1,12 +1,17 @@
 # Lyrion Now Playing — visual identity
 
-The chosen artwork combines the **Lyrion-inspired equalizer bars** with a
-**Now Playing display** motif (screen, play symbol and progress line).
-This identifies the app as a view-only companion rather than a full playback client.
+The approved artwork combines the **exact ten-bar waveform height pattern and
+bar positions** from [CDrummond's lms-material-app](https://github.com/CDrummond/lms-material-app/blob/master/lms-material/src/main/res/drawable/ic_launcher_foreground.xml)
+with our original **Now Playing display** motif (screen, play symbol and progress
+line). The source vector is retained verbatim in
+[`artwork/upstream-material-icon-foreground.xml`](../artwork/upstream-material-icon-foreground.xml)
+for traceability. The waveform is scaled and recolored to retain our existing
+cyan-to-yellow gradient; its ten-bar silhouette replaces the previous unrelated
+seven-bar approximation. All surrounding icon and banner elements are unchanged.
 
-The production art comes from the two visual concepts selected in the design
-discussion. It is not a copy of the launcher icon from
-[CDrummond/lms-material-app](https://github.com/CDrummond/lms-material-app).
+Upstream waveform/vector © its contributors, MIT-licensed under
+[CDrummond/lms-material-app/LICENSE](https://github.com/CDrummond/lms-material-app/blob/master/LICENSE).
+The app remains an **unofficial companion**, not an official Lyrion release.
 
 ## Source images
 
