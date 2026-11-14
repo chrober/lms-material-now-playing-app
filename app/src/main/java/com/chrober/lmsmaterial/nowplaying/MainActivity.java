@@ -5,6 +5,9 @@ import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
+import android.content.res.Configuration;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -53,6 +56,14 @@ public final class MainActivity extends Activity {
     private static final String KEY_SERVER = "server";
     private static final String KEY_PLAYER = "player_id";
     private static final String KEY_KEEP_AWAKE = "keep_awake";
+    private static final String KEY_THEME = "material_theme";
+    private static final String KEY_COLOR = "material_color";
+    private static final String KEY_COLOR_USAGE = "material_color_usage";
+    private static final String KEY_COLORED_TOOLBARS = "material_colored_toolbars";
+    private static final String KEY_SAMPLED_PROFILE = "material_sampled_profile";
+    private static final String KEY_SAMPLED_BG = "material_sampled_background";
+    private static final String KEY_SAMPLED_TEXT = "material_sampled_text";
+    private static final String KEY_SAMPLED_ACCENT = "material_sampled_accent";
 
     private static final long GEAR_VISIBLE_MS = 5000L;
     private static final long GEAR_FADE_IN_MS = 230L;
@@ -79,11 +90,26 @@ public final class MainActivity extends Activity {
     private TextView playerStatus;
     private CheckBox awakeCheckbox;
     private Button startButton;
+    private ScrollView settingsScroll;
+    private Spinner themeSpinner;
+    private Spinner colorUsageSpinner;
+    private Spinner colorSpinner;
+    private CheckBox coloredToolbarsCheckbox;
+    private final List<MaterialTheme.Option> themeOptions = MaterialTheme.builtInThemes();
+    private final List<MaterialTheme.ColorOption> colorOptions = MaterialTheme.builtInColors();
+    private String themeCatalogServer = "";
+    private String themeCatalogPending = "";
+    private String playersLoadedServer = "";
+    private String draftServer;
+    private String draftPlayerId;
+    private Boolean draftKeepAwake;
+    private int draftScrollY;
+    private int focusAfterAppearanceChange = -1;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
-        resolveThemePalette();
         prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        resolveThemePalette();
         DisplayManager manager = (DisplayManager) getSystemService(DISPLAY_SERVICE);
         supportsAwake = getWindow() != null && manager != null
                 && manager.getDisplays().length != 0;
@@ -160,6 +186,7 @@ public final class MainActivity extends Activity {
     }
 
     private void showSettings(String error) {
+        resolveThemePalette();
         requestSerial++;
         handler.removeCallbacks(hideGear);
         gearButton = null;
@@ -171,6 +198,7 @@ public final class MainActivity extends Activity {
         ScrollView scroll = new ScrollView(this);
         scroll.setBackgroundColor(BG);
         scroll.setFillViewport(true);
+        settingsScroll = scroll;
         FrameLayout body = new FrameLayout(this);
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
@@ -192,7 +220,7 @@ public final class MainActivity extends Activity {
             add(content, label(error, 16, Color.rgb(255, 170, 148), false), 0, 14);
 
         content.addView(label("LYRION SERVER", 15, ACCENT, true));
-        serverInput = input(prefs.getString(KEY_SERVER, ""),
+        serverInput = input(draftServer != null ? draftServer : prefs.getString(KEY_SERVER, ""),
                 "192.168.1.30:9000 or https://lyrion.local");
         add(content, framedControl(serverInput), 5, 6);
         Button discoveryButton = button("Find Lyrion servers");
@@ -232,6 +260,41 @@ public final class MainActivity extends Activity {
         add(content, refreshButton, 0, 20);
         refreshButton.setOnClickListener(v -> loadPlayers());
 
+        content.addView(label("APPEARANCE", 15, ACCENT, true));
+        add(content, label("Theme", 15, SUBTEXT, false), 8, 0);
+        themeSpinner = new Spinner(this);
+        add(content, framedControl(themeSpinner), 4, 8);
+        bindThemeSpinner();
+        add(content, label("Color", 15, SUBTEXT, false), 3, 0);
+        colorUsageSpinner = new Spinner(this);
+        add(content, framedControl(colorUsageSpinner), 4, 8);
+        bindColorUsageSpinner();
+        if (prefs.getInt(KEY_COLOR_USAGE, MaterialTheme.COLOR_COVER) == MaterialTheme.COLOR_FIXED) {
+            add(content, label("Accent color", 15, SUBTEXT, false), 3, 0);
+            colorSpinner = new Spinner(this);
+            add(content, framedControl(colorSpinner), 4, 8);
+            bindColorSpinner();
+        } else {
+            colorSpinner = null;
+            add(content, label("Accent follows Material Skin's current "
+                    + (prefs.getInt(KEY_COLOR_USAGE, MaterialTheme.COLOR_COVER) == MaterialTheme.COLOR_PLAYER
+                        ? "player." : "album cover."), 14, SUBTEXT, false), 0, 8);
+        }
+        coloredToolbarsCheckbox = new CheckBox(this);
+        coloredToolbarsCheckbox.setText("Color toolbars");
+        coloredToolbarsCheckbox.setTextColor(TEXT);
+        coloredToolbarsCheckbox.setTextSize(17);
+        coloredToolbarsCheckbox.setPadding(dp(10), dp(8), dp(10), dp(8));
+        coloredToolbarsCheckbox.setBackground(focusBackground());
+        coloredToolbarsCheckbox.setChecked(prefs.getBoolean(KEY_COLORED_TOOLBARS, false));
+        coloredToolbarsCheckbox.setOnCheckedChangeListener((control, checked) -> {
+            if (checked != prefs.getBoolean(KEY_COLORED_TOOLBARS, false)) {
+                prefs.edit().putBoolean(KEY_COLORED_TOOLBARS, checked).apply();
+                appearanceChanged(0);
+            }
+        });
+        add(content, coloredToolbarsCheckbox, 0, 16);
+
         content.addView(label("DISPLAY", 15, ACCENT, true));
         awakeCheckbox = new CheckBox(this);
         awakeCheckbox.setText("Keep screen awake");
@@ -239,7 +302,8 @@ public final class MainActivity extends Activity {
         awakeCheckbox.setTextSize(17);
         awakeCheckbox.setBackground(focusBackground());
         awakeCheckbox.setPadding(dp(10), dp(8), dp(10), dp(8));
-        awakeCheckbox.setChecked(prefs.getBoolean(KEY_KEEP_AWAKE, true));
+        awakeCheckbox.setChecked(draftKeepAwake != null
+                ? draftKeepAwake : prefs.getBoolean(KEY_KEEP_AWAKE, true));
         awakeCheckbox.setEnabled(supportsAwake);
         add(content, awakeCheckbox, 5, 4);
         add(content, label(supportsAwake
@@ -267,16 +331,145 @@ public final class MainActivity extends Activity {
                 playerOptions.clear();
                 showPlayerEntries();
                 playerStatus.setText("Refresh players for this server.");
+                playersLoadedServer = "";
+                themeCatalogServer = "";
             }
             @Override public void afterTextChanged(Editable s) { }
         });
         showPlayerEntries();
-        if (ServerAddress.normalize(serverInput.getText().toString()) != null) {
-            loadPlayers();
-        } else {
+        String settingsServer = ServerAddress.normalize(serverInput.getText().toString());
+        if (settingsServer != null) {
+            if (!settingsServer.equals(playersLoadedServer) || playerOptions.isEmpty()) {
+                loadPlayers();
+            }
+            loadMaterialCatalog(settingsServer);
+        } else if (draftServer == null) {
             discoveryButton.requestFocus();
             discoveryButton.performClick();
         }
+        if (focusAfterAppearanceChange >= 0) {
+            int target = focusAfterAppearanceChange;
+            int scrollY = draftScrollY;
+            focusAfterAppearanceChange = -1;
+            scroll.post(() -> {
+                scroll.scrollTo(0, scrollY);
+                Spinner focus = target == 1 ? colorUsageSpinner
+                        : target == 2 ? colorSpinner : themeSpinner;
+                if (focus != null) focus.requestFocus();
+                else if (themeSpinner != null) themeSpinner.requestFocus();
+            });
+        }
+    }
+
+    private void bindThemeSpinner() {
+        ArrayAdapter<MaterialTheme.Option> adapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_item, themeOptions);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        themeSpinner.setAdapter(adapter);
+        String wanted = prefs.getString(KEY_THEME, MaterialTheme.DEFAULT_THEME);
+        for (int i=0; i<themeOptions.size(); i++)
+            if (wanted.equals(themeOptions.get(i).key)) { themeSpinner.setSelection(i); break; }
+        themeSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
+                String key = themeOptions.get(pos).key;
+                if (!key.equals(prefs.getString(KEY_THEME, MaterialTheme.DEFAULT_THEME))) {
+                    prefs.edit().putString(KEY_THEME, key).apply();
+                    appearanceChanged(0);
+                }
+            }
+            @Override public void onNothingSelected(AdapterView<?> parent) { }
+        });
+    }
+
+    private void bindColorUsageSpinner() {
+        List<String> modes = new ArrayList<>();
+        modes.add("For all players");
+        modes.add("From current cover (all players)");
+        modes.add("Per player");
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_item, modes);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        colorUsageSpinner.setAdapter(adapter);
+        int wanted = prefs.getInt(KEY_COLOR_USAGE, MaterialTheme.COLOR_COVER);
+        colorUsageSpinner.setSelection(Math.max(0, Math.min(2, wanted)));
+        colorUsageSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
+                if (pos != prefs.getInt(KEY_COLOR_USAGE, MaterialTheme.COLOR_COVER)) {
+                    prefs.edit().putInt(KEY_COLOR_USAGE, pos).apply();
+                    appearanceChanged(1);
+                }
+            }
+            @Override public void onNothingSelected(AdapterView<?> parent) { }
+        });
+    }
+
+    private void bindColorSpinner() {
+        ArrayAdapter<MaterialTheme.ColorOption> adapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_item, colorOptions);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        colorSpinner.setAdapter(adapter);
+        String wanted = prefs.getString(KEY_COLOR, MaterialTheme.DEFAULT_COLOR);
+        for (int i=0; i<colorOptions.size(); i++)
+            if (wanted.equals(colorOptions.get(i).key)) { colorSpinner.setSelection(i); break; }
+        colorSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
+                String key = colorOptions.get(pos).key;
+                if (!key.equals(prefs.getString(KEY_COLOR, MaterialTheme.DEFAULT_COLOR))) {
+                    prefs.edit().putString(KEY_COLOR, key).apply();
+                    appearanceChanged(2);
+                }
+            }
+            @Override public void onNothingSelected(AdapterView<?> parent) { }
+        });
+    }
+
+    /** Re-create controls to reflect the new native palette, without losing unsaved server edits. */
+    private void appearanceChanged(int focus) {
+        if (serverInput != null) draftServer = serverInput.getText().toString();
+        if (playerSpinner != null) {
+            int pos = playerSpinner.getSelectedItemPosition();
+            if (pos > 0 && pos <= playerOptions.size()) draftPlayerId = playerOptions.get(pos - 1).id;
+        }
+        if (awakeCheckbox != null) draftKeepAwake = awakeCheckbox.isChecked();
+        draftScrollY = settingsScroll == null ? 0 : settingsScroll.getScrollY();
+        focusAfterAppearanceChange = focus;
+        handler.post(() -> {
+            if (!displayVisible && !isFinishing()) showSettings(null);
+        });
+    }
+
+    private void loadMaterialCatalog(String server) {
+        if (server.equals(themeCatalogServer) || server.equals(themeCatalogPending)) return;
+        themeCatalogPending = server;
+        MaterialSkinCatalog.fetch(server, result -> {
+            if (!server.equals(themeCatalogPending) || isFinishing()) return;
+            themeCatalogPending = "";
+            themeCatalogServer = server;
+            themeOptions.clear();
+            themeOptions.addAll(MaterialTheme.mergedThemes(result.themes));
+            colorOptions.clear();
+            colorOptions.addAll(MaterialTheme.builtInColors());
+            for (MaterialTheme.ColorOption extra : result.colors) {
+                boolean exists = false;
+                for (MaterialTheme.ColorOption standard : colorOptions)
+                    if (standard.key.equals(extra.key)) { exists = true; break; }
+                if (!exists) colorOptions.add(extra);
+            }
+            if (!prefs.contains(KEY_THEME) && result.defaults != null) {
+                String theme = result.defaults.optString("theme", MaterialTheme.DEFAULT_THEME);
+                String color = result.defaults.optString("color", MaterialTheme.DEFAULT_COLOR);
+                if (MaterialTheme.safeKey(theme) && MaterialTheme.safeKey(color)) {
+                    prefs.edit().putString(KEY_THEME, theme).putString(KEY_COLOR, color).apply();
+                    appearanceChanged(0);
+                    return;
+                }
+            }
+            if (!displayVisible && themeSpinner != null && server.equals(
+                    ServerAddress.normalize(serverInput.getText().toString()))) {
+                bindThemeSpinner();
+                if (colorSpinner != null) bindColorSpinner();
+            }
+        });
     }
 
     private void showPlayerEntries() {
@@ -290,6 +483,13 @@ public final class MainActivity extends Activity {
         playerSpinner.setAdapter(adapter);
         playerSpinner.setEnabled(!playerOptions.isEmpty());
         if (startButton != null) startButton.setEnabled(false);
+        String wanted = draftPlayerId != null ? draftPlayerId : prefs.getString(KEY_PLAYER, "");
+        for (int i=0; i<playerOptions.size(); i++) {
+            if (playerOptions.get(i).id.equals(wanted)) {
+                playerSpinner.setSelection(i + 1);
+                break;
+            }
+        }
         playerSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
                 if (startButton != null) startButton.setEnabled(pos > 0 && pos <= playerOptions.size());
@@ -319,19 +519,18 @@ public final class MainActivity extends Activity {
                 return;
             }
             playerOptions.addAll(players);
+            playersLoadedServer = server;
             showPlayerEntries();
             if (players.isEmpty()) {
                 playerStatus.setText("No players found on this server.");
                 return;
             }
             playerStatus.setText(players.size() + " player(s) available");
-            if (server.equals(ServerAddress.normalize(prefs.getString(KEY_SERVER, "")))) {
-                String saved = prefs.getString(KEY_PLAYER, "");
-                for (int i = 0; i < players.size(); i++) {
-                    if (saved.equals(players.get(i).id)) {
-                        playerSpinner.setSelection(i + 1);
-                        break;
-                    }
+            String saved = draftPlayerId != null ? draftPlayerId : prefs.getString(KEY_PLAYER, "");
+            for (int i = 0; i < players.size(); i++) {
+                if (saved.equals(players.get(i).id)) {
+                    playerSpinner.setSelection(i + 1);
+                    break;
                 }
             }
         });
@@ -350,6 +549,9 @@ public final class MainActivity extends Activity {
                 .putString(KEY_PLAYER, playerOptions.get(pos - 1).id)
                 .putBoolean(KEY_KEEP_AWAKE, supportsAwake && awakeCheckbox.isChecked())
                 .apply();
+        draftServer = null;
+        draftPlayerId = null;
+        draftKeepAwake = null;
         showDisplay();
     }
 

@@ -20,7 +20,7 @@ final class MaterialTheme {
     static final int COLOR_COVER = 1;
     static final int COLOR_PLAYER = 2;
 
-    static final class Option {
+    static class Option {
         final String key;
         final String label;
         Option(String key, String label) { this.key = key; this.label = label; }
