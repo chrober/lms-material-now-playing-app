@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 RES = ROOT / "app" / "src" / "main" / "res"
 ART = ROOT / "artwork"
 icon = Image.open(ART / "lyrion-now-playing-icon-source.webp").convert("RGBA")
+assert icon.getpixel((0, 0))[3] == 0, "Launcher artwork must have transparent outside corners"
 
 sizes = {"mdpi": 48, "hdpi": 72, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192}
 for density, size in sizes.items():

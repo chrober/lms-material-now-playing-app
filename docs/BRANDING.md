@@ -7,7 +7,7 @@ line). The source vector is retained verbatim in
 [`artwork/upstream-material-icon-foreground.xml`](../artwork/upstream-material-icon-foreground.xml)
 for traceability. The waveform is scaled and recolored to retain our existing
 cyan-to-yellow gradient; its ten-bar silhouette replaces the previous unrelated
-seven-bar approximation. All surrounding icon and banner elements are unchanged.
+seven-bar approximation. The monitor display, original ten-bar waveform, play symbol, progress bar, and TV banner remain unchanged. In v0.1.1 the opaque rounded-tile backdrop outside the monitor was removed to reveal the device launcher background.
 
 Upstream waveform/vector © its contributors, MIT-licensed under
 [CDrummond/lms-material-app/LICENSE](https://github.com/CDrummond/lms-material-app/blob/master/LICENSE).
@@ -16,7 +16,7 @@ The app remains an **unofficial companion**, not an official Lyrion release.
 ## Source images
 
 - `artwork/lyrion-now-playing-icon-source.webp`: 512 × 512,
-  rounded icon tile with transparency at the outer corners.
+  monitor-only artwork: fully transparent outside the screen frame and stand.
 - `artwork/lyrion-now-playing-banner-source.webp`: 640 × 360,
   landscape Lyrion Now Playing banner.
 
@@ -39,7 +39,7 @@ The generated WebP assets are committed to the repository.
 | `drawable-nodpi/tv_banner.webp` | 640 × 360 | Android TV / Fire TV banner |
 
 The adaptive launcher icon (Android API 26+) uses an XML declaration with a
-dark blue background and transparent foreground. **Fire OS 6 / API 25** uses
+transparent background and transparent foreground. **Fire OS 6 / API 25** uses
 the legacy mipmap assets; its TV launcher displays the separate banner.
 
 To regenerate the optimized resources after editing either source:
