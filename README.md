@@ -1,4 +1,4 @@
-# Material Skin Now Playing App
+# Lyrion Now Playing
 
 A minimal, view-only Android application for the **Now Playing** screen of [Lyrion Music Server](https://lyrion.org/). It embeds the existing `/material/np-only` display from [Material Skin](https://github.com/CDrummond/lms-material) in a fullscreen Android WebView, without introducing playback controls or changing Material Skin.
 
@@ -23,7 +23,7 @@ Intended for Fire TV / Android TV, tablets, phones and other **Android-based** d
 | Mouse or trackpad | Moving the pointer reveals the gear; click it. |
 | Back | Leave the app. |
 
-The gear is a native, top-left overlay and **not part of the web page**. It fades in over **230 ms** with a soft deceleration and slight upward-to-neutral movement/scale. After **5 seconds** without activity, it fades out more slowly over **700 ms**. Further interaction cancels and restarts the animation/timer. WebView touch input and remote playback/keyboard commands are intercepted; the page remains view-only.
+The gear is a native, top-right overlay and **not part of the web page**. It fades in over **230 ms** with a soft deceleration and slight upward-to-neutral movement/scale. After **5 seconds** without activity, it fades out more slowly over **700 ms**. Further interaction cancels and restarts the animation/timer. WebView touch input and remote playback/keyboard commands are intercepted; the page remains view-only.
 
 ## Supported Android versions
 

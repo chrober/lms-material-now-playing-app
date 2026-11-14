@@ -181,7 +181,7 @@ public final class MainActivity extends Activity {
         scroll.addView(body);
         setContentView(scroll);
 
-        content.addView(label("Material Now Playing", 28, TEXT, true));
+        content.addView(label(getString(R.string.app_name), 28, TEXT, true));
         add(content, label("A dedicated, read-only display for Lyrion Music Server.",
                 16, SUBTEXT, false), 6, 20);
         if (error != null)
@@ -426,8 +426,8 @@ public final class MainActivity extends Activity {
             if (focused) revealGear();
         });
         FrameLayout.LayoutParams gearParams = new FrameLayout.LayoutParams(
-                dp(56), dp(56), Gravity.TOP | Gravity.START);
-        gearParams.setMargins(dp(22), dp(22), 0, 0);
+                dp(56), dp(56), Gravity.TOP | Gravity.END);
+        gearParams.setMargins(0, dp(22), dp(22), 0);
         root.addView(gearButton, gearParams);
         setContentView(root);
         browser.loadUrl(activeUrl);
