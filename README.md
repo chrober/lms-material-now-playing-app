@@ -60,12 +60,12 @@ adb shell am start -n com.chrober.lmsmaterial.nowplaying/.MainActivity \
 
 1. Enable ADB debugging on your Android-based Fire TV Stick.
 2. Install Android SDK Platform Tools on Windows.
-3. Connect and install the downloaded debug or release APK:
+3. Extract the artifact ZIP and install the downloaded debug APK (`lms-material-now-playing-debug.apk`), or use the versioned APK from Releases:
 
 ```powershell
 adb connect FIRE_TV_IP:5555
 adb shell getprop ro.build.version.sdk
-adb install -r .\app-debug.apk
+adb install -r .\lms-material-now-playing-debug.apk
 ```
 
 The reported API level of the 2018 Fire TV Stick 4K should be **25**.
@@ -80,8 +80,8 @@ gradle :app:testDebugUnitTest
 gradle :app:assembleDebug
 ```
 
-- `.github/workflows/ci.yml`: run lint, unit tests, and debug APK build for pull requests, pushes to `main`, and manual dispatch; upload APK and lint report.
-- `.github/workflows/release.yml`: on a `v*` tag matching `versionName`, verify lint/tests, assemble a **signed** release APK, verify its signature, generate SHA-256 checksums and publish a GitHub Release.
+- `.github/workflows/ci.yml`: run lint, unit tests, and debug APK build for pull requests, pushes to `main`, and manual dispatch; upload the `lms-material-now-playing-debug` artifact containing `lms-material-now-playing-debug.apk`, plus a lint report.
+- `.github/workflows/release.yml`: on a `v*` tag matching `versionName`, verify lint/tests, assemble a **signed** release APK, verify its signature, generate SHA-256 checksums and publish `lms-material-now-playing-vX.Y.Z.apk` to a GitHub Release.
 - [Release instructions](docs/RELEASING.md): how to configure your keystore secrets and publish a tag.
 
 The `applicationId` is `com.chrober.lmsmaterial.nowplaying`. The release workflow **requires signing secrets**; it intentionally fails rather than publishing an unsigned, uninstallable production APK.

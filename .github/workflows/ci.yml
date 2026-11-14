@@ -43,6 +43,8 @@ jobs:
         run: gradle --no-daemon :app:testDebugUnitTest
       - name: Build installable debug APK
         run: gradle --no-daemon :app:assembleDebug
+      - name: Name debug APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/lms-material-now-playing-debug.apk
       - name: Publish lint reports
         if: always()
         uses: actions/upload-artifact@v7
@@ -53,6 +55,6 @@ jobs:
       - name: Publish debug APK
         uses: actions/upload-artifact@v7
         with:
-          name: material-now-playing-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: lms-material-now-playing-debug
+          path: app/build/outputs/apk/debug/lms-material-now-playing-debug.apk
           if-no-files-found: error

@@ -69,14 +69,14 @@ jobs:
       - name: Verify signed APK
         run: |
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose app/build/outputs/apk/release/app-release.apk
-          cp app/build/outputs/apk/release/app-release.apk "material-now-playing-${GITHUB_REF_NAME}.apk"
-          sha256sum "material-now-playing-${GITHUB_REF_NAME}.apk" > "material-now-playing-${GITHUB_REF_NAME}.apk.sha256"
+          cp app/build/outputs/apk/release/app-release.apk "lms-material-now-playing-${GITHUB_REF_NAME}.apk"
+          sha256sum "lms-material-now-playing-${GITHUB_REF_NAME}.apk" > "lms-material-now-playing-${GITHUB_REF_NAME}.apk.sha256"
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" \
-            "material-now-playing-${GITHUB_REF_NAME}.apk" \
-            "material-now-playing-${GITHUB_REF_NAME}.apk.sha256" \
+            "lms-material-now-playing-${GITHUB_REF_NAME}.apk" \
+            "lms-material-now-playing-${GITHUB_REF_NAME}.apk.sha256" \
             --title "Material Now Playing $GITHUB_REF_NAME" \
             --generate-notes

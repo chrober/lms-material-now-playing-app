@@ -42,10 +42,10 @@ Secrets are made available only to the release job; pull request CI does not use
 2. Update both `versionCode` (integer, must increase for updates) and `versionName` (e.g. `0.1.0`) in `app/build.gradle`.
 3. Merge any necessary updates to `main`.
 4. Tag the desired commit: `git tag v0.1.0` and `git push origin v0.1.0`.
-5. Watch the **Publish Android release** workflow. It checks the tag/version match, lints/tests, builds and verifies the signed APK, and uploads it together with a SHA-256 file to a GitHub Release.
+5. Watch the **Publish Android release** workflow. It checks the tag/version match, lints/tests, builds and verifies the signed APK, and uploads it as `lms-material-now-playing-vX.Y.Z.apk` together with a matching `.sha256` file to a GitHub Release.
 
 **Do not tag a release until the four signing secrets have been configured.** If a job fails, inspect the workflow log; the publish step runs only after successful verification.
 
 ## Debug builds
 
-Every successful pull request or `main` CI run publishes an installable **debug APK** as a workflow artifact. Debug builds use Android's debug signing certificate and cannot be updated in-place with the production release APK (uninstall first).
+Every successful pull request or `main` CI run publishes an installable **debug APK** named `lms-material-now-playing-debug.apk` inside the `lms-material-now-playing-debug` workflow artifact. Debug builds use Android's debug signing certificate and cannot be updated in-place with the production release APK (uninstall first).
