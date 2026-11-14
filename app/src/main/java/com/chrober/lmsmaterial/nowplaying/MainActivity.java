@@ -4,9 +4,11 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.StateListDrawable;
 import android.hardware.display.DisplayManager;
 import android.net.Uri;
 import android.os.Bundle;
@@ -55,10 +57,11 @@ public final class MainActivity extends Activity {
     private static final long GEAR_VISIBLE_MS = 5000L;
     private static final long GEAR_FADE_IN_MS = 230L;
     private static final long GEAR_FADE_OUT_MS = 700L;
-    private static final int BG = Color.rgb(13, 18, 25);
-    private static final int TEXT = Color.rgb(241, 246, 249);
-    private static final int SUBTEXT = Color.rgb(169, 181, 193);
-    private static final int ACCENT = Color.rgb(117, 201, 198);
+    // Settings colors are resolved from the active Android system theme.
+    private int BG;
+    private int TEXT;
+    private int SUBTEXT;
+    private int ACCENT;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final List<LyrionPlayers.Player> playerOptions = new ArrayList<>();
@@ -79,6 +82,7 @@ public final class MainActivity extends Activity {
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
+        resolveThemePalette();
         prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         DisplayManager manager = (DisplayManager) getSystemService(DISPLAY_SERVICE);
         supportsAwake = getWindow() != null && manager != null
@@ -190,7 +194,7 @@ public final class MainActivity extends Activity {
         content.addView(label("LYRION SERVER", 15, ACCENT, true));
         serverInput = input(prefs.getString(KEY_SERVER, ""),
                 "192.168.1.30:9000 or https://lyrion.local");
-        add(content, serverInput, 5, 6);
+        add(content, framedControl(serverInput), 5, 6);
         Button discoveryButton = button("Find Lyrion servers");
         add(content, discoveryButton, 0, 20);
         discoveryButton.setOnClickListener(v -> {
@@ -221,7 +225,7 @@ public final class MainActivity extends Activity {
 
         content.addView(label("PLAYER", 15, ACCENT, true));
         playerSpinner = new Spinner(this);
-        add(content, playerSpinner, 8, 6);
+        add(content, framedControl(playerSpinner), 8, 6);
         playerStatus = label("Choose a server to see its players.", 15, SUBTEXT, false);
         add(content, playerStatus, 0, 8);
         Button refreshButton = button("Refresh player list");
@@ -233,6 +237,8 @@ public final class MainActivity extends Activity {
         awakeCheckbox.setText("Keep screen awake");
         awakeCheckbox.setTextColor(TEXT);
         awakeCheckbox.setTextSize(17);
+        awakeCheckbox.setBackground(focusBackground());
+        awakeCheckbox.setPadding(dp(10), dp(8), dp(10), dp(8));
         awakeCheckbox.setChecked(prefs.getBoolean(KEY_KEEP_AWAKE, true));
         awakeCheckbox.setEnabled(supportsAwake);
         add(content, awakeCheckbox, 5, 4);
@@ -407,7 +413,8 @@ public final class MainActivity extends Activity {
 
         gearButton = new ImageButton(this);
         gearButton.setImageResource(R.drawable.ic_gear);
-        gearButton.setColorFilter(TEXT);
+        // The overlay always sits on a dark pill above the Material Skin page.
+        gearButton.setColorFilter(Color.WHITE);
         gearButton.setContentDescription(getString(R.string.open_settings));
         gearButton.setFocusable(true);
         gearButton.setClickable(true);
@@ -549,8 +556,102 @@ public final class MainActivity extends Activity {
         button.setText(text);
         button.setTextSize(16);
         button.setAllCaps(false);
-        button.setMinHeight(dp(48));
+        button.setMinHeight(dp(52));
+        button.setPadding(dp(18), dp(10), dp(18), dp(10));
+        button.setBackground(buttonBackground());
+        int onAccent = contrastingText(ACCENT);
+        button.setTextColor(new ColorStateList(
+                new int[][]{
+                    new int[]{-android.R.attr.state_enabled},
+                    new int[]{android.R.attr.state_pressed},
+                    new int[]{android.R.attr.state_focused},
+                    new int[]{}
+                },
+                new int[]{blend(BG, TEXT, 0.45f), onAccent, onAccent, TEXT}));
         return button;
+    }
+
+    private void resolveThemePalette() {
+        BG = themeColor(android.R.attr.colorBackground, Color.BLACK);
+        TEXT = themeColor(android.R.attr.textColorPrimary, Color.WHITE);
+        SUBTEXT = themeColor(android.R.attr.textColorSecondary, TEXT);
+        ACCENT = themeColor(android.R.attr.colorAccent, TEXT);
+    }
+
+    private int themeColor(int attribute, int fallback) {
+        android.content.res.TypedArray attributes =
+                getTheme().obtainStyledAttributes(new int[]{attribute});
+        try {
+            ColorStateList colors = attributes.getColorStateList(0);
+            return colors == null ? fallback : colors.getDefaultColor();
+        } finally {
+            attributes.recycle();
+        }
+    }
+
+    /** High-contrast, clearly focused buttons, including on Fire TV's D-pad. */
+    private StateListDrawable buttonBackground() {
+        StateListDrawable background = new StateListDrawable();
+        int onAccent = contrastingText(ACCENT);
+        background.addState(new int[]{-android.R.attr.state_enabled},
+                buttonShape(blend(BG, TEXT, 0.04f), blend(BG, TEXT, 0.12f), 1));
+        background.addState(new int[]{android.R.attr.state_pressed},
+                buttonShape(ACCENT, onAccent, 3));
+        background.addState(new int[]{android.R.attr.state_focused},
+                buttonShape(ACCENT, onAccent, 3));
+        background.addState(new int[]{},
+                buttonShape(blend(BG, ACCENT, 0.12f), blend(BG, ACCENT, 0.5f), 1));
+        return background;
+    }
+
+    /** Outline focused text fields and spinners without replacing native controls. */
+    private FrameLayout framedControl(View control) {
+        FrameLayout frame = new FrameLayout(this);
+        frame.setBackground(focusBackground());
+        frame.setPadding(dp(8), dp(3), dp(8), dp(3));
+        frame.addView(control, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        control.setOnFocusChangeListener((view, focused) -> frame.setActivated(focused));
+        return frame;
+    }
+
+    private StateListDrawable focusBackground() {
+        StateListDrawable background = new StateListDrawable();
+        background.addState(new int[]{android.R.attr.state_activated},
+                buttonShape(blend(BG, ACCENT, 0.14f), ACCENT, 3));
+        background.addState(new int[]{android.R.attr.state_focused},
+                buttonShape(blend(BG, ACCENT, 0.14f), ACCENT, 3));
+        background.addState(new int[]{},
+                buttonShape(BG, blend(BG, ACCENT, 0.22f), 1));
+        return background;
+    }
+
+    private GradientDrawable buttonShape(int fill, int border, int strokeDp) {
+        GradientDrawable shape = new GradientDrawable();
+        shape.setColor(fill);
+        shape.setCornerRadius(dp(12));
+        shape.setStroke(dp(strokeDp), border);
+        return shape;
+    }
+
+    private static int blend(int from, int to, float amount) {
+        return Color.rgb(
+                Math.round(Color.red(from) * (1 - amount) + Color.red(to) * amount),
+                Math.round(Color.green(from) * (1 - amount) + Color.green(to) * amount),
+                Math.round(Color.blue(from) * (1 - amount) + Color.blue(to) * amount));
+    }
+
+    /** WCAG luminance threshold: choose readable text for any wallpaper accent. */
+    private static int contrastingText(int background) {
+        double brightness = 0.2126 * linear(Color.red(background))
+                + 0.7152 * linear(Color.green(background))
+                + 0.0722 * linear(Color.blue(background));
+        return brightness > 0.179 ? Color.BLACK : Color.WHITE;
+    }
+
+    private static double linear(int component) {
+        double value = component / 255.0;
+        return value <= 0.04045 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4);
     }
 
     private TextView label(String value, int size, int color, boolean bold) {
