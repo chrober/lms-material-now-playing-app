@@ -374,9 +374,22 @@ public final class MainActivity extends Activity {
         }
     }
 
+    private <T> ArrayAdapter<T> themedSpinnerAdapter(List<T> items) {
+        ArrayAdapter<T> adapter = new ArrayAdapter<T>(this,
+                android.R.layout.simple_spinner_item, items) {
+            @Override public View getView(int position, View convertView, ViewGroup parent) {
+                TextView view = (TextView) super.getView(position, convertView, parent);
+                view.setTextColor(TEXT);
+                view.setTextSize(17);
+                return view;
+            }
+        };
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        return adapter;
+    }
+
     private void bindThemeSpinner() {
-        ArrayAdapter<MaterialTheme.Option> adapter = new ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_item, themeOptions);
+        ArrayAdapter<MaterialTheme.Option> adapter = themedSpinnerAdapter(themeOptions);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         themeSpinner.setAdapter(adapter);
         String wanted = prefs.getString(KEY_THEME, MaterialTheme.DEFAULT_THEME);
@@ -406,8 +419,7 @@ public final class MainActivity extends Activity {
         modes.add("For all players");
         modes.add("From current cover (all players)");
         modes.add("Per player");
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_item, modes);
+        ArrayAdapter<String> adapter = themedSpinnerAdapter(modes);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         colorUsageSpinner.setAdapter(adapter);
         int wanted = prefs.getInt(KEY_COLOR_USAGE, MaterialTheme.COLOR_COVER);
@@ -424,8 +436,7 @@ public final class MainActivity extends Activity {
     }
 
     private void bindColorSpinner() {
-        ArrayAdapter<MaterialTheme.ColorOption> adapter = new ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_item, colorOptions);
+        ArrayAdapter<MaterialTheme.ColorOption> adapter = themedSpinnerAdapter(colorOptions);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         colorSpinner.setAdapter(adapter);
         String wanted = prefs.getString(KEY_COLOR, MaterialTheme.DEFAULT_COLOR);
