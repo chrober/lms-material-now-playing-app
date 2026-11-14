@@ -13,6 +13,20 @@ Intended for Fire TV / Android TV, tablets, phones and other **Android-based** d
 - No extra Lyrion plugin, fork of Material Skin, account or playback device required.
 - Native settings and overlay that work with touchscreens, mouse and TV remote controls.
 
+### System appearance and remote focus
+
+The native settings screen follows the device's **light or dark UI mode**, when the
+device exposes one. On Android 12+ (API 31+) it uses Android's wallpaper-derived
+dynamic **accent and background** colors; on older devices it inherits the
+platform Material theme's palette. Fire OS 6 and other older TV devices may not
+offer an OS-level light/dark switch or dynamic wallpaper colors.
+
+Settings buttons provide a **solid accent fill, contrast-aware text and a prominent
+outline when focused** with a D-pad, as well as a pressed state on touch.
+Server and player fields and the keep-awake checkbox also display an outline
+when focused. The Material Skin Now Playing web page and launcher artwork
+are not re-themed.
+
 ### Settings access and gear animation
 
 | Input | From fullscreen Now Playing |
