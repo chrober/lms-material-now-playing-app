@@ -1,5 +1,7 @@
 # Publishing signed Android releases
 
+> **Current distribution hold:** Public APK releases are temporarily paused while permission to use the **Lyrion name and logo/branding** is clarified. Do not trigger a public release using the current name/artwork until permission is confirmed or the branding is replaced. This document describes the existing workflow for maintainers; **the workflow remains configured and will publish automatically when triggered**.
+
 A release is published when a tag beginning with `v` is pushed (for example `v0.1.0`). For GitHub-only publication without a local tag push, a push to `publish/vX.Y.Z` also builds the signed APK and creates the matching tag and GitHub Release. Both routes require the tag to match `versionName` in `app/build.gradle`.
 
 ## 1. Create and safeguard your release keystore
