@@ -31,7 +31,7 @@ Other devices are not comprehensively hardware-tested. Actual behavior depends o
 
 **Not supported:** Amazon **Vega OS**, Samsung **Tizen**, and LG **webOS** (these do not run this Android APK).
 
-You also need a reachable Lyrion Music Server with [Material Skin](https://github.com/CDrummond/lms-material) installed and enabled **on the server**. Craig Drummond's separate Material Android app does not need to be installed on the device. If Material Skin is absent from the server, its `/material/np-only` page cannot load; the app currently does not display a dedicated "Material Skin missing" error.
+You also need a reachable Lyrion Music Server with [Material Skin](https://github.com/CDrummond/lms-material) installed and enabled **on the server**. Craig Drummond's separate Material Android app does not need to be installed on the device. If Material Skin is unavailable, the app displays a native explanation and offers **Retry**, **Settings**, and **Exit**, rather than showing a server error page.
 
 ## Getting started
 

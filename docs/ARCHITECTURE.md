@@ -5,7 +5,7 @@ This document contains implementation and platform details kept out of the [READ
 ## Application design
 
 - The application is a small native Android `Activity` with a fullscreen `WebView`; its settings, keyboard/remote handling, and gear button are native Android UI.
-- The display loads **Material Skin's existing** `/material/np-only` endpoint for the configured player. Material Skin performs the rendering; no local HTML recreation or extra server plugin is involved.
+- The app first probes **Material Skin's existing** `/material/np-only` endpoint with a background GET and verifies its recognizable Now Playing redirect. Only when this succeeds does it start loading the display in its WebView. Material Skin performs the rendering; no local HTML recreation or extra server plugin is involved.
 - The WebView is deliberately **view-only**: touch and media-control interactions with the page are blocked. The settings overlay remains interactive. This is a UI behavior, **not** an authorization or network-security barrier.
 - The selected server, player **ID**, keep-awake choice, and appearance settings are saved locally via Android `SharedPreferences`. A player rename therefore does not normally require reconfiguration.
 - The app can also be opened with an optional ADB `url` intent extra for development.
@@ -16,6 +16,7 @@ This document contains implementation and platform details kept out of the [READ
 - Manual server URL entry is always available; local installations commonly use HTTP on port **9000**, although HTTPS is supported when configured on the server.
 - Player discovery uses Lyrion's read-only JSON-RPC endpoint, `POST /jsonrpc.js`, with the command `["", ["players", "0", "100"]]`.
 - The JSON-RPC client currently handles **unauthenticated** servers and up to **100 players**. Authenticated endpoints and larger player lists are not yet implemented.
+- If the Material Skin route is missing (HTTP 404/410 or an unexpected HTML page), the app displays a native **Material Skin unavailable** dialog with Retry, Settings and Exit. Other HTTP/network errors have separate messages. The WebView remains covered by a native loading view until the Material Skin UI is verified, and main-frame HTTP failures are intercepted. This prevents users from seeing raw server error pages. The separate Material Android app is never required.
 - Normal Lyrion clients can operate alongside the display.
 
 ### Material Skin themes and native appearance
@@ -95,6 +96,6 @@ Do not expose an unauthenticated Lyrion server to the public internet merely for
 - `.github/workflows/ci.yml` runs lint, unit tests and a debug APK build on PRs and changes to `main`. CI publishes a debug APK artifact for testing.
 - `.github/workflows/release.yml` builds, signs, and verifies the release APK, generates a SHA-256 checksum, and can publish a GitHub pre-release when triggered by a version tag or `publish/v*` branch.
 - A signed release APK uses the configured signing key, **not** the debug certificate. The package ID is `com.chrober.lmsmaterial.nowplaying`.
-- **Public release distribution is currently paused while branding permission is being clarified.** Do not trigger the release workflow for distribution until that is resolved.
+- Lyrion branding was [approved by Michael Herger](https://github.com/chrober/lms-material-now-playing-app/issues/15#issuecomment-6979289683) while the app remains free and open source; release distribution is permitted within that scope.
 
 See [Release instructions](RELEASING.md) for signing-key management and release mechanics.
