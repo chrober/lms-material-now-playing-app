@@ -32,6 +32,7 @@ import android.view.animation.DecelerateInterpolator;
 import android.view.inputmethod.EditorInfo;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -618,8 +619,30 @@ public final class MainActivity extends Activity {
                 + "&theme=" + MaterialTheme.urlTheme(theme,
                     prefs.getBoolean(KEY_COLORED_TOOLBARS, false)) + "," + color;
 
+        // Probe the actual Material Skin route before displaying its content.
+        // Some Lyrion servers return an HTML error document for missing plugins.
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(BG);
+        TextView loading = label("Checking Material Skin…", 18, TEXT, false);
+        loading.setGravity(Gravity.CENTER);
+        loading.setBackgroundColor(BG);
+        root.addView(loading, new FrameLayout.LayoutParams(-1, -1));
+        setContentView(root);
+
+        final int serial = requestSerial;
+        MaterialSkinProbe.check(activeUrl, result -> {
+            if (serial != requestSerial || !displayVisible || isFinishing() || isDestroyed())
+                return;
+            if (result.status != MaterialSkinProbe.Status.AVAILABLE) {
+                materialProbeFailed(result);
+                return;
+            }
+            loading.setText("Connecting to Lyrion…");
+            loadNowPlaying(root, loading);
+        });
+    }
+
+    private void loadNowPlaying(FrameLayout root, TextView loading) {
         browser = new WebView(this);
         browser.setBackgroundColor(BG);
         browser.setFocusable(false);
@@ -640,30 +663,48 @@ public final class MainActivity extends Activity {
         settings.setAllowUniversalAccessFromFileURLs(false);
         settings.setJavaScriptCanOpenWindowsAutomatically(false);
         settings.setSupportMultipleWindows(false);
-        root.addView(browser, new FrameLayout.LayoutParams(-1, -1));
-
-        TextView loading = label("Connecting to Lyrion…", 18, TEXT, false);
-        loading.setGravity(Gravity.CENTER);
-        loading.setBackgroundColor(BG);
-        root.addView(loading, new FrameLayout.LayoutParams(-1, -1));
+        // Keep the opaque native loading view *above* the WebView until the
+        // actual Material Skin page is verified. No raw HTTP error is exposed.
+        root.addView(browser, 0, new FrameLayout.LayoutParams(-1, -1));
         browser.setWebViewClient(new WebViewClient() {
             @Override public void onPageFinished(WebView view, String url) {
                 if (browser != view || !displayVisible) return;
                 // Theme/color are set via Material Skin's supported URL parameter.
                 // The separate "colorUsage" preference must be stored in the
                 // same origin as Material Skin, then loaded once more if changed.
+                // /np-only is a small JavaScript redirect page, not the actual
+                // Material display. Wait until its destination has loaded.
+                String path = Uri.parse(url).getPath();
+                if (path != null && (path.endsWith("/np-only")
+                        || path.endsWith("/np-only.html"))) return;
                 String javascript = "(function(){try{" +
+                        "if(!document.getElementById('app')) return 'missing';" +
                         "var key='lms-material::colorUsage';" +
                         "var expected='" + prefs.getInt(KEY_COLOR_USAGE, MaterialTheme.COLOR_COVER) + "';" +
                         "if(localStorage.getItem(key)!==expected){" +
-                        "localStorage.setItem(key,expected);location.reload();return true;}" +
-                        "return false;}catch(e){return false;}})()";
+                        "localStorage.setItem(key,expected);location.reload();return 'reload';}" +
+                        "return 'ready';}catch(e){return 'missing';}})()";
                 view.evaluateJavascript(javascript, result -> {
                     if (browser != view || !displayVisible) return;
-                    if ("true".equals(result)) return;
+                    if ("\"reload\"".equals(result)) return;
+                    if (!"\"ready\"".equals(result)) {
+                        materialMissing();
+                        return;
+                    }
                     loading.setVisibility(View.GONE);
                     sampleWebPalette(view, null);
                 });
+            }
+            @Override public void onReceivedHttpError(WebView view, WebResourceRequest request,
+                                                       WebResourceResponse response) {
+                if (browser != view || !displayVisible || request == null
+                        || !request.isForMainFrame()) return;
+                int status = response.getStatusCode();
+                if (status == 404 || status == 410) {
+                    materialMissing();
+                } else {
+                    connectionFailed("Unable to load the Now Playing page (HTTP " + status + ").");
+                }
             }
             @Override public void onReceivedError(WebView view, WebResourceRequest request,
                                                   WebResourceError error) {
@@ -703,16 +744,41 @@ public final class MainActivity extends Activity {
                 dp(56), dp(56), Gravity.TOP | Gravity.END);
         gearParams.setMargins(0, dp(22), dp(22), 0);
         root.addView(gearButton, gearParams);
-        setContentView(root);
         browser.loadUrl(activeUrl);
     }
 
+    private void materialProbeFailed(MaterialSkinProbe.Result result) {
+        if (result.status == MaterialSkinProbe.Status.MISSING
+                || result.status == MaterialSkinProbe.Status.UNEXPECTED_PAGE) {
+            materialMissing();
+        } else if (result.status == MaterialSkinProbe.Status.UNAUTHORIZED) {
+            connectionFailed("Access to the Now Playing page was denied (HTTP "
+                    + result.httpCode + "). Check the Lyrion server's authentication settings.");
+        } else if (result.status == MaterialSkinProbe.Status.HTTP_ERROR) {
+            connectionFailed("Unable to load the Now Playing page (HTTP "
+                    + result.httpCode + "). Check the Lyrion server.");
+        } else {
+            connectionFailed("Could not contact the Lyrion server. Check the address and network.");
+        }
+    }
+
+    private void materialMissing() {
+        displayProblem("Material Skin unavailable",
+                "The Lyrion server is reachable, but the Material Skin Now Playing page "
+                + "is unavailable. Install or enable Material Skin under Lyrion's "
+                + "Settings > Plugins, then select Retry.");
+    }
+
     private void connectionFailed(String message) {
+        displayProblem("Lyrion connection problem", message);
+    }
+
+    private void displayProblem(String title, String message) {
         if (!displayVisible || isFinishing()) return;
         displayVisible = false;
         updateWakeFlag();
         new AlertDialog.Builder(this)
-                .setTitle("Lyrion connection problem")
+                .setTitle(title)
                 .setMessage(message)
                 .setPositiveButton("Retry", (d, which) -> showDisplay())
                 .setNeutralButton("Settings", (d, which) -> showSettings(null))
