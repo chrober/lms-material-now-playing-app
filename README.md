@@ -10,6 +10,14 @@ Material Skin already offers an excellent Now Playing display, but using it on a
 
 This small Android wrapper provides a more convenient experience: discover a Lyrion server, select a player once, and launch straight into its fullscreen Now Playing display on subsequent starts. Fire TV was the original motivation, but the idea is useful on other Android-based displays too.
 
+## Screenshots
+
+| Now Playing | Settings |
+| :---: | :---: |
+| [![Fullscreen Now Playing display showing album artwork, track information, and progress](screenshots/now-playing.jpg)](screenshots/now-playing.jpg) | [![App settings showing server selection, player selection, appearance, and display options](screenshots/settings.jpg)](screenshots/settings.jpg) |
+
+Click either screenshot to view it at full resolution.
+
 ## Features
 
 - **Easy setup:** Discover Lyrion servers on the local network or enter a server address manually, then choose an available player.
