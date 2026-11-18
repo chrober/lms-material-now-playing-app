@@ -31,13 +31,13 @@ Other devices are not comprehensively hardware-tested. Actual behavior depends o
 
 **Not supported:** Amazon **Vega OS**, Samsung **Tizen**, and LG **webOS** (these do not run this Android APK).
 
-You also need a reachable Lyrion Music Server with [Material Skin](https://github.com/CDrummond/lms-material) installed.
+You also need a reachable Lyrion Music Server with [Material Skin](https://github.com/CDrummond/lms-material) installed and enabled **on the server**. Craig Drummond's separate Material Android app does not need to be installed on the device. If Material Skin is absent from the server, its `/material/np-only` page cannot load; the app currently does not display a dedicated "Material Skin missing" error.
 
 ## Getting started
 
-> **Distribution status:** Public APK downloads are temporarily paused while permission to use the Lyrion name and branding is being clarified. The source code remains available for review and local development.
+> **Download:** Signed APKs are available from [GitHub Releases](https://github.com/chrober/lms-material-now-playing-app/releases). Michael Herger [approved use of Lyrion branding](https://github.com/chrober/lms-material-now-playing-app/issues/15#issuecomment-6979289683) for this free and open-source project.
 
-For development or evaluation, [build the debug APK from source](#building-from-source). Once installed:
+Install a signed APK from [GitHub Releases](https://github.com/chrober/lms-material-now-playing-app/releases), or [build the debug APK from source](#building-from-source). Once installed:
 
 1. Launch the app and discover a Lyrion server, or enter its HTTP(S) address manually.
 2. Select one of the players returned by that server.
@@ -58,7 +58,7 @@ The display is intentionally **view-only**. Playback remains controlled through 
 
 The app is a native Android wrapper around Material Skin's existing `/material/np-only?player=...` endpoint. It discovers servers and players, displays the selected player in an Android WebView, and keeps its own settings locally. Material Skin itself provides the Now Playing rendering and themes.
 
-This is an **unofficial companion project**, not an official Lyrion or Material Skin application. **Permission to use the Lyrion name and branding has not yet been confirmed.** The application's source-code license does not imply permission to use third-party trademarks or logos. See [Lyrion's terms](https://lyrion.org/terms/) and [artwork attribution / branding status](docs/BRANDING.md).
+This is an **unofficial companion project**, not an official Lyrion or Material Skin application. **Michael Herger approved use of the Lyrion name and branding for this free and open-source project** ([permission comment](https://github.com/chrober/lms-material-now-playing-app/issues/15#issuecomment-6979289683)). The application's source-code license does not imply permission to use third-party trademarks or logos. See [Lyrion's terms](https://lyrion.org/terms/) and [artwork attribution / branding status](docs/BRANDING.md).
 
 ## Building from source
 
