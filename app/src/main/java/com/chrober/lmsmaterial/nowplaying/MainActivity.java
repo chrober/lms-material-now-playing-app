@@ -335,9 +335,6 @@ public final class MainActivity extends Activity {
             cancel.setOnClickListener(v -> showDisplay());
             add(content, cancel, 0, 6);
         }
-        add(content, label("Fire TV: Menu opens settings; D-pad reveals the gear. "
-                + "Touchscreen: tap the display, then tap the gear.", 14, SUBTEXT, false), 16, 0);
-
         serverInput.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
