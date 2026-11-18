@@ -1,6 +1,6 @@
 # Artwork, attribution and branding status
 
-> **Permission pending:** This is an independently developed, unofficial companion app. Permission to use the **Lyrion name and logo/branding has not yet been confirmed**. The project's public APK releases are currently paused while this is clarified. The [Lyrion terms](https://lyrion.org/terms/) apply independently of the app's source-code license.
+> **Branding permission granted:** Michael Herger [approved the use of the Lyrion name and artwork as shown](https://github.com/chrober/lms-material-now-playing-app/issues/15#issuecomment-6979289683) **as long as this project remains free and open source**. This is an independent, unofficial companion app and does not imply endorsement by Lyrion. The [Lyrion terms](https://lyrion.org/terms/) continue to apply beyond the scope of that permission.
 
 The application's icon and banner combine a **Now Playing display** motif (screen, play symbol, and progress indicator) with a ten-bar waveform adapted from [Craig Drummond's Material Android app](https://github.com/CDrummond/lms-material-app/blob/master/lms-material/src/main/res/drawable/ic_launcher_foreground.xml). The waveform arrangement was retained and recolored with the app's cyan-to-yellow gradient; the display composition is app-specific.
 
@@ -34,4 +34,4 @@ python -m pip install Pillow
 python tools/render_launcher_assets.py
 ```
 
-Inspect the resulting launcher icons at **48 px**, as well as on the intended TV device, before publishing an updated APK. Any future public distribution should take the outcome of the branding-permission request into account.
+Inspect the resulting launcher icons at **48 px**, as well as on the intended TV device, before publishing an updated APK. Public distributions using this branding must remain within the [free-and-open-source permission granted by Michael Herger](https://github.com/chrober/lms-material-now-playing-app/issues/15#issuecomment-6979289683).

@@ -1,6 +1,6 @@
 # Publishing signed Android releases
 
-> **Current distribution hold:** Public APK releases are temporarily paused while permission to use the **Lyrion name and logo/branding** is clarified. Do not trigger a public release using the current name/artwork until permission is confirmed or the branding is replaced. This document describes the existing workflow for maintainers; **the workflow remains configured and will publish automatically when triggered**.
+> **Branding permission:** Michael Herger [approved Lyrion branding for this app](https://github.com/chrober/lms-material-now-playing-app/issues/15#issuecomment-6979289683) on the condition that it remains **free and open source**. The distribution hold has been lifted. The release workflow builds and publishes automatically when triggered.
 
 A release is published when a tag beginning with `v` is pushed (for example `v0.1.0`). For GitHub-only publication without a local tag push, a push to `publish/vX.Y.Z` also builds the signed APK and creates the matching tag and GitHub Release. Both routes require the tag to match `versionName` in `app/build.gradle`.
 
