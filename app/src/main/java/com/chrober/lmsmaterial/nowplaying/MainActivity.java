@@ -677,34 +677,17 @@ public final class MainActivity extends Activity {
                 String path = Uri.parse(url).getPath();
                 if (path != null && (path.endsWith("/np-only")
                         || path.endsWith("/np-only.html"))) return;
-                String javascript = "(function(){try{" +
-                        "if(!document.getElementById('app')) return 'missing';" +
-                        "var key='lms-material::colorUsage';" +
-                        "var expected='" + prefs.getInt(KEY_COLOR_USAGE, MaterialTheme.COLOR_COVER) + "';" +
-                        "if(localStorage.getItem(key)!==expected){" +
-                        "localStorage.setItem(key,expected);location.reload();return 'reload';}" +
-                        "return 'ready';}catch(e){return 'missing';}})()";
-                view.evaluateJavascript(javascript, result -> {
-                    if (browser != view || !displayVisible) return;
-                    if ("\"reload\"".equals(result)) return;
-                    if (!"\"ready\"".equals(result)) {
-                        materialMissing();
-                        return;
-                    }
-                    loading.setVisibility(View.GONE);
-                    sampleWebPalette(view, null);
-                });
+                verifyMaterialDisplay(view, loading, 4);
             }
             @Override public void onReceivedHttpError(WebView view, WebResourceRequest request,
                                                        WebResourceResponse response) {
                 if (browser != view || !displayVisible || request == null
                         || !request.isForMainFrame()) return;
                 int status = response.getStatusCode();
-                if (status == 404 || status == 410) {
-                    materialMissing();
-                } else {
-                    connectionFailed("Unable to load the Now Playing page (HTTP " + status + ").");
-                }
+                // The preflight succeeded, so a later HTTP error does not
+                // prove Material Skin is absent. Report a load failure instead.
+                connectionFailed("Material Skin's Now Playing page returned HTTP "
+                        + status + ". Please retry.");
             }
             @Override public void onReceivedError(WebView view, WebResourceRequest request,
                                                   WebResourceError error) {
@@ -747,10 +730,45 @@ public final class MainActivity extends Activity {
         browser.loadUrl(activeUrl);
     }
 
+    /**
+     * The preflight proved the plugin endpoint exists. Give a cold WebView
+     * several chances to initialize before reporting a display load failure.
+     */
+    private void verifyMaterialDisplay(WebView view, TextView loading, int retriesRemaining) {
+        if (browser != view || !displayVisible) return;
+        String javascript = "(function(){try{" +
+                "if(!document.getElementById('app')) return 'missing';" +
+                "var key='lms-material::colorUsage';" +
+                "var expected='" + prefs.getInt(KEY_COLOR_USAGE, MaterialTheme.COLOR_COVER) + "';" +
+                "if(localStorage.getItem(key)!==expected){" +
+                "localStorage.setItem(key,expected);location.reload();return 'reload';}" +
+                "return 'ready';}catch(e){return 'missing';}})()";
+        view.evaluateJavascript(javascript, result -> {
+            if (browser != view || !displayVisible) return;
+            if ("\"reload\"".equals(result)) return;
+            if ("\"ready\"".equals(result)) {
+                loading.setVisibility(View.GONE);
+                sampleWebPalette(view, null);
+            } else if (retriesRemaining > 0) {
+                handler.postDelayed(() -> verifyMaterialDisplay(view, loading,
+                        retriesRemaining - 1), 500L);
+            } else {
+                connectionFailed("Lyrion responded, but the Material Skin Now Playing "
+                        + "display did not finish loading. Please retry.");
+            }
+        });
+    }
+
     private void materialProbeFailed(MaterialSkinProbe.Result result) {
-        if (result.status == MaterialSkinProbe.Status.MISSING
-                || result.status == MaterialSkinProbe.Status.UNEXPECTED_PAGE) {
+        if (result.status == MaterialSkinProbe.Status.MISSING) {
             materialMissing();
+        } else if (result.status == MaterialSkinProbe.Status.UNEXPECTED_PAGE) {
+            connectionFailed("The Lyrion server returned an unexpected page instead "
+                    + "of Material Skin's Now Playing display. Check that Material Skin "
+                    + "is enabled and select Retry.");
+        } else if (result.status == MaterialSkinProbe.Status.TIMEOUT) {
+            connectionFailed("The Lyrion server did not respond in time. "
+                    + "It may still be starting up. Please retry.");
         } else if (result.status == MaterialSkinProbe.Status.UNAUTHORIZED) {
             connectionFailed("Access to the Now Playing page was denied (HTTP "
                     + result.httpCode + "). Check the Lyrion server's authentication settings.");

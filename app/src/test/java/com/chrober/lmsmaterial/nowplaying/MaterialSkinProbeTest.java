@@ -26,6 +26,34 @@ public class MaterialSkinProbeTest {
                 MaterialSkinProbe.classify(200, "<html>Login required</html>").status);
     }
 
+    @Test public void retriesPossibleColdStartFailures() {
+        MaterialSkinProbe.Result missing =
+                new MaterialSkinProbe.Result(MaterialSkinProbe.Status.MISSING, 404);
+        MaterialSkinProbe.Result unexpected =
+                new MaterialSkinProbe.Result(MaterialSkinProbe.Status.UNEXPECTED_PAGE, 200);
+        MaterialSkinProbe.Result timeout =
+                new MaterialSkinProbe.Result(MaterialSkinProbe.Status.TIMEOUT, 0);
+        MaterialSkinProbe.Result unavailable =
+                new MaterialSkinProbe.Result(MaterialSkinProbe.Status.HTTP_ERROR, 503);
+
+        assertEquals(true, MaterialSkinProbe.shouldRetry(missing, 1));
+        assertEquals(true, MaterialSkinProbe.shouldRetry(missing, 2));
+        assertEquals(false, MaterialSkinProbe.shouldRetry(missing, 3));
+        assertEquals(true, MaterialSkinProbe.shouldRetry(unexpected, 1));
+        assertEquals(true, MaterialSkinProbe.shouldRetry(timeout, 1));
+        assertEquals(false, MaterialSkinProbe.shouldRetry(timeout, 2));
+        assertEquals(true, MaterialSkinProbe.shouldRetry(unavailable, 1));
+    }
+
+    @Test public void doesNotRetrySuccessOrAuthorizationFailures() {
+        assertEquals(false, MaterialSkinProbe.shouldRetry(
+                new MaterialSkinProbe.Result(MaterialSkinProbe.Status.AVAILABLE, 200), 1));
+        assertEquals(false, MaterialSkinProbe.shouldRetry(
+                new MaterialSkinProbe.Result(MaterialSkinProbe.Status.UNAUTHORIZED, 401), 1));
+        assertEquals(false, MaterialSkinProbe.shouldRetry(
+                new MaterialSkinProbe.Result(MaterialSkinProbe.Status.HTTP_ERROR, 302), 1));
+    }
+
     @Test public void separatesAuthorizationFromOtherHttpErrors() {
         assertEquals(MaterialSkinProbe.Status.UNAUTHORIZED,
                 MaterialSkinProbe.classify(401, "").status);

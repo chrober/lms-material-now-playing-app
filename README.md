@@ -31,7 +31,7 @@ Other devices are not comprehensively hardware-tested. Actual behavior depends o
 
 **Not supported:** Amazon **Vega OS**, Samsung **Tizen**, and LG **webOS** (these do not run this Android APK).
 
-You also need a reachable Lyrion Music Server with [Material Skin](https://github.com/CDrummond/lms-material) installed and enabled **on the server**. Craig Drummond's separate Material Android app does not need to be installed on the device. If Material Skin is unavailable, the app displays a native explanation and offers **Retry**, **Settings**, and **Exit**, rather than showing a server error page.
+You also need a reachable Lyrion Music Server with [Material Skin](https://github.com/CDrummond/lms-material) installed and enabled **on the server**. Craig Drummond's separate Material Android app does not need to be installed on the device. The app verifies Material Skin before opening Now Playing and automatically retries temporary startup failures. If it still cannot load the page, it displays a native explanation with **Retry**, **Settings**, and **Exit** rather than showing a server error page.
 
 ## Getting started
 
