@@ -5,7 +5,7 @@ This document contains implementation and platform details kept out of the [READ
 ## Application design
 
 - The application is a small native Android `Activity` with a fullscreen `WebView`; its settings, keyboard/remote handling, and gear button are native Android UI.
-- The app first probes **Material Skin's existing** `/material/np-only` endpoint with a background GET and verifies its recognizable Now Playing redirect. Only when this succeeds does it start loading the display in its WebView. Material Skin performs the rendering; no local HTML recreation or extra server plugin is involved.
+- The app first probes **Material Skin's existing** `/material/np-only` endpoint with a background GET and verifies its recognizable Now Playing redirect. The probe retries transient startup timeouts, missing-route responses, and unexpected pages before reporting an error. Only after success does it load the display in its WebView. Material Skin performs the rendering; no local HTML recreation or extra server plugin is involved.
 - The WebView is deliberately **view-only**: touch and media-control interactions with the page are blocked. The settings overlay remains interactive. This is a UI behavior, **not** an authorization or network-security barrier.
 - The selected server, player **ID**, keep-awake choice, and appearance settings are saved locally via Android `SharedPreferences`. A player rename therefore does not normally require reconfiguration.
 - The app can also be opened with an optional ADB `url` intent extra for development.
@@ -16,7 +16,7 @@ This document contains implementation and platform details kept out of the [READ
 - Manual server URL entry is always available; local installations commonly use HTTP on port **9000**, although HTTPS is supported when configured on the server.
 - Player discovery uses Lyrion's read-only JSON-RPC endpoint, `POST /jsonrpc.js`, with the command `["", ["players", "0", "100"]]`.
 - The JSON-RPC client currently handles **unauthenticated** servers and up to **100 players**. Authenticated endpoints and larger player lists are not yet implemented.
-- If the Material Skin route is missing (HTTP 404/410 or an unexpected HTML page), the app displays a native **Material Skin unavailable** dialog with Retry, Settings and Exit. Other HTTP/network errors have separate messages. The WebView remains covered by a native loading view until the Material Skin UI is verified, and main-frame HTTP failures are intercepted. This prevents users from seeing raw server error pages. The separate Material Android app is never required.
+- To accommodate a slow first launch, the probe uses a 5-second connect timeout and 6.5-second read timeout, automatically retrying temporary failures (up to three attempts for an absent route/unexpected HTML or HTTP 5xx; up to two for network/timeouts). Repeated HTTP 404/410 produces a native **Material Skin unavailable** dialog with Retry, Settings, and Exit. An unexpected 200 page is reported without claiming the plugin is missing, and timeouts have their own message. The WebView remains covered by a native loading view until the Material Skin UI is verified; cold WebView initialization is retried before reporting failure, and main-frame HTTP failures are intercepted. The separate Material Android app is never required.
 - Normal Lyrion clients can operate alongside the display.
 
 ### Material Skin themes and native appearance
