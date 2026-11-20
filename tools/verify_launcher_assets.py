@@ -39,17 +39,37 @@ if len(argv) > 1:
     assert apk.is_file(), f"APK missing: {apk}"
     with ZipFile(apk) as package:
         names = package.namelist()
-        for density in SIZES:
+        # Recent Android build tools can shorten release resource paths.
+        # Inspect PNG headers instead of relying on a particular ZIP filename.
+        png_dimensions = {}
+        for name in names:
+            if not name.startswith("res/") or not name.endswith(".png"):
+                continue
+            with package.open(name) as icon:
+                header = icon.read(24)
+            if len(header) == 24 and header[:8] == PNG_SIGNATURE and header[12:16] == b"IHDR":
+                png_dimensions[name] = unpack(">II", header[16:24])
+        for density, expected_size in SIZES.items():
             prefix = f"res/mipmap-{density}"
-            expected = [
-                n for n in names if n.startswith(prefix)
+            named = [
+                n for n in png_dimensions if n.startswith(prefix)
                 and n.endswith("/ic_launcher.png")
             ]
-            assert expected, f"APK missing PNG launcher icon: {density}"
+            # AAPT may flatten resource paths in an optimized release APK.
+            # Source checks above guarantee the five source icons are PNG;
+            # the image-size check confirms they are packaged as PNG too.
+            matching = named or [
+                n for n, dimensions in png_dimensions.items()
+                if dimensions == (expected_size, expected_size)
+            ]
+            assert matching, (
+                f"APK missing PNG icon of size {expected_size} x {expected_size}; "
+                f"available PNG resources: {png_dimensions}"
+            )
             invalid = [
                 n for n in names if n.startswith(prefix)
                 and n.endswith("/ic_launcher.webp")
             ]
             assert not invalid, f"APK has obsolete WebP launcher icon: {invalid}"
-            print(f"APK OK: {expected[0]}")
+            print(f"APK OK: {density}: {matching[0]} ({expected_size} x {expected_size})")
     print(f"APK launcher icons verified: {apk}")
