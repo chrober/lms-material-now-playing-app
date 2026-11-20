@@ -14,7 +14,7 @@ This branch adds build and QA prerequisites only. It does not publish or submit 
 ## Not yet established
 
 1. Real F-Droid buildserver/scanner compatibility. The disabled draft recipe is now in [fdroid/metadata](../fdroid/metadata) with details in [packaging plan](FDROID_PACKAGING.md). **It is not publishable** because it points at an untagged post-release QA source snapshot. Validate it with fdroidserver and the official buildserver before submission; a Gradle build alone is not proof.
-2. Reproducible upstream-signature verification. By default, F-Droid signs APKs with a different key than GitHub, and users cannot update across those certificates. Investigate verified reproducible upstream-signed APKs before promising continuity.
+2. **Local reproducibility passed for an unpublished QA snapshot**, including byte-identical unsigned APKs and a successful `apksigcopier` comparison using the developer signing key and build-tools 34. See [packaging verification](FDROID_PACKAGING.md). Official buildserver verification for the **exact next tagged release** remains open; do not promise cross-channel upgrades until that is confirmed.
 3. Device compatibility matrix. Fire OS 6 needs manual remote-focus and launcher-cache regression tests; emulator API 29 does not establish Android TV/Fire TV compatibility.
 4. Store screenshots and attribution. The README Settings illustration has been edited, so use genuine screenshots for the final F-Droid listing.
 5. Security review of Material Skin and trusted HTTP LAN communication. The WebView restricts main-frame navigations to the configured Lyrion server's /material page, but trusted server subresources may use other URLs.

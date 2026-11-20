@@ -52,10 +52,51 @@ entries missing from the unsigned APK. **This does not prove reproducibility**:
 the two APKs have different source revisions, and a proper same-revision,
 signature-aware comparison is required.
 
-## Reproducible upstream signing (preferred, not yet verified)
+## Local QA reproducibility verified (20 Nov 2026)
+
+A [controlled GitHub Actions test](https://github.com/chrober/lyrion-display/actions/runs/44764689613)
+built the **same exact QA source commit**
+`35b1749c9d4036ec765aaee51b7dfa2de43ed8a1` twice:
+
+1. `fdroidserver 2.4.5` ran source scanning and its Gradle build with
+   an ordinary git checkout.
+2. A separate ordinary git clone ran Gradle 9.9.1 against the identical
+   commit, with no signing credentials.
+
+**The unsigned APKs matched byte-for-byte**, SHA-256:
+
+`824b6eae13cc1cbd1c9a82d0feb35f15c8ab46817908bf3a23518a49738898ee`
+
+The second APK was signed using **the existing production keystore** and
+Android SDK `apksigner` from build-tools **34.0.0**. The command
+`apksigcopier compare --unsigned signed.apk fdroid-unsigned.apk` **passed**.
+This shows that local, source-built APKs can preserve the original
+developer-signing certificate without changing the app ID.
+
+**Important limitations:**
+
+- This is a QA snapshot with `versionCode 8`, *not* the published
+  `v0.2.0` tag. It must never be submitted as that release.
+- A GitHub-hosted Ubuntu preflight is not the official F-Droid buildserver
+  image. Real F-Droid environment and the exact next tagged release must
+  be tested again.
+- Signing with Android SDK build-tools **35.0.0** failed
+  `apksigcopier` verification due to its APK Signing Block layout, as
+  [documented by F-Droid](https://f-droid.org/en/docs/Reproducible_Builds/).
+  For a future developer-signed F-Droid release, adapt the GitHub **release
+  workflow** to sign with build-tools **34.0.0** and verify with
+  `apksigcopier`. Do not modify or republish `v0.2.0`.
+- Android Gradle Plugin embeds Git revision information in
+  `META-INF/version-control-info.textproto`. Use a **normal git clone**,
+  not `git worktree`, for independent builds. Our worktree experiment
+  produced `NO_VALID_GIT_FOUND` and was not reproducible.
+- None of these experiments uploaded, released or submitted an APK
+  to F-Droid. The only packaged candidate in this branch remains disabled.
+
+## Reproducible upstream signing (locally verified; official release pending)
 
 To preserve in-place updates from the GitHub-signed APK, the official F-Droid metadata
-can ultimately specify:
+can ultimately specify, **only once the new tagged release is verified**:
 
 ```yaml
 # DO NOT activate until an independent F-Droid build was proven byte-for-byte
@@ -65,9 +106,8 @@ AllowedAPKSigningKeys:
   - af624ba3a730a5bf4a9d0b77e2bed2ec557744705362d4a4445e6dcb125f1dfb
 ```
 
-The signing-certificate digest above was observed in the production-signed QA
-APK and must be independently checked against the **exact first published
-F-Droid release candidate** before enabling it.
+The certificate digest above comes from the established production key and must
+be checked against the **exact first published F-Droid release candidate** before enabling it.
 
 F-Droid checks reproducibility by copying the upstream signature onto
 its independently built unsigned APK and verifying the result. Use
