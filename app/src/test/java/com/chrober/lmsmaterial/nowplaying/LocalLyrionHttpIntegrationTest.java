@@ -144,14 +144,14 @@ public class LocalLyrionHttpIntegrationTest {
             assertEquals("POST", method);
             assertEquals("/jsonrpc.js", path);
             requests.incrementAndGet();
-            if (body.contains("material-skin")) {
-                return new Reply(200, "{\"result\":{\"themes\":[{\"key\":\"dark\",\"label\":\"Dark\"}],"
-                        + "\"colors\":[{\"key\":\"lyrion\",\"label\":\"Lyrion\",\"color\":\"#112233\"}]}}");
-            }
             if (body.contains("plugin.material-skin:defaults")) {
                 JSONObject payload = new JSONObject().put("result",
                         new JSONObject().put("_p2", "{\"theme\":\"dark\"}"));
                 return new Reply(200, payload.toString());
+            }
+            if (body.contains("material-skin")) {
+                return new Reply(200, "{\"result\":{\"themes\":[{\"key\":\"dark\",\"label\":\"Dark\"}],"
+                        + "\"colors\":[{\"key\":\"lyrion\",\"label\":\"Lyrion\",\"color\":\"#112233\"}]}}");
             }
             return new Reply(400, "Unknown RPC");
         });
