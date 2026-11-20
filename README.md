@@ -24,6 +24,7 @@ This small Android wrapper provides a more convenient experience: discover a Lyr
 
 - **Easy setup:** Discover Lyrion servers on the local network or enter a server address manually, then choose an available player.
 - **Instant Now Playing:** Remembers your server and player and opens the fullscreen, read-only Material Skin view on launch.
+- **Minimal track details:** Hides Material Skin's file type/bitrate technical information in this app's Now Playing view without changing settings on your other Material Skin clients. Playlist position remains available.
 - **Material Skin appearance:** Select the original **Automatic, Light, Dark, Black, or Lyrion** themes (and server-provided custom themes), plus the original color modes and accent colors. The embedded display and native settings follow the selection.
 - **TV remote and touchscreen support:** Native, D-pad-friendly settings and a discreet gear overlay.
 - **Keep screen awake:** Prevents the usual Android display timeout while the Now Playing screen is foregrounded, where supported.
