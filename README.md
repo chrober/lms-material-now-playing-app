@@ -1,4 +1,4 @@
-# Lyrion Now Playing
+# Lyrion Display
 
 A lightweight Android app that turns a Fire TV, Android TV, tablet, or other compatible Android-based device into a dedicated, fullscreen **Now Playing display** for [Lyrion Music Server](https://lyrion.org/).
 
@@ -12,11 +12,9 @@ This small Android wrapper provides a more convenient experience: discover a Lyr
 
 ## Screenshots
 
-| Now Playing | Settings |
-| :---: | :---: |
-| [![Fullscreen Now Playing display showing album artwork, track information, and progress](screenshots/now-playing.jpg)](screenshots/now-playing.jpg) | [![App settings showing server selection, player selection, appearance, and display options](screenshots/settings.jpg)](screenshots/settings.jpg) |
+[![Fullscreen Now Playing display showing album artwork, track information, and progress](screenshots/now-playing.jpg)](screenshots/now-playing.jpg)
 
-Click either screenshot to view it at full resolution.
+An updated settings screenshot will be added after the rename is verified on a real device.
 
 ## Features
 
@@ -41,11 +39,15 @@ Other devices are not comprehensively hardware-tested. Actual behavior depends o
 
 You also need a reachable Lyrion Music Server with [Material Skin](https://github.com/CDrummond/lms-material) installed and enabled **on the server**. Craig Drummond's separate Material Android app does not need to be installed on the device. The app verifies Material Skin before opening Now Playing and automatically retries temporary startup failures. If it still cannot load the page, it displays a native explanation with **Retry**, **Settings**, and **Exit** rather than showing a server error page.
 
+## Upgrading from Lyrion Now Playing
+
+**Lyrion Display is the same Android app under a new name.** The application ID (`com.chrober.lmsmaterial.nowplaying`) and release signing key stay the same, preserving in-place release upgrades and saved settings. Debug and release APKs are signed differently and cannot normally update one another.
+
 ## Getting started
 
-> **Download:** Signed APKs are available from [GitHub Releases](https://github.com/chrober/lms-material-now-playing-app/releases). Michael Herger [approved use of Lyrion branding](https://github.com/chrober/lms-material-now-playing-app/issues/15#issuecomment-6979289683) for this free and open-source project.
+> **Download:** Signed APKs are available from [GitHub Releases](https://github.com/chrober/lyrion-display/releases). Michael Herger [approved use of Lyrion branding](https://github.com/chrober/lyrion-display/issues/15#issuecomment-6979289683) for this free and open-source project.
 
-Install a signed APK from [GitHub Releases](https://github.com/chrober/lms-material-now-playing-app/releases), or [build the debug APK from source](#building-from-source). Once installed:
+Install a signed APK from [GitHub Releases](https://github.com/chrober/lyrion-display/releases), or [build the debug APK from source](#building-from-source). Once installed:
 
 1. Launch the app and discover a Lyrion server, or enter its HTTP(S) address manually.
 2. Select one of the players returned by that server.
@@ -66,7 +68,7 @@ The display is intentionally **view-only**. Playback remains controlled through 
 
 The app is a native Android wrapper around Material Skin's existing `/material/np-only?player=...` endpoint. It discovers servers and players, displays the selected player in an Android WebView, and keeps its own settings locally. Material Skin itself provides the Now Playing rendering and themes.
 
-This is an **unofficial companion project**, not an official Lyrion or Material Skin application. **Michael Herger approved use of the Lyrion name and branding for this free and open-source project** ([permission comment](https://github.com/chrober/lms-material-now-playing-app/issues/15#issuecomment-6979289683)). The application's source-code license does not imply permission to use third-party trademarks or logos. See [Lyrion's terms](https://lyrion.org/terms/) and [artwork attribution / branding status](docs/BRANDING.md).
+This is an **unofficial companion project**, not an official Lyrion or Material Skin application. **Michael Herger approved use of the Lyrion name and branding for this free and open-source project** ([permission comment](https://github.com/chrober/lyrion-display/issues/15#issuecomment-6979289683)). The application's source-code license does not imply permission to use third-party trademarks or logos. See [Lyrion's terms](https://lyrion.org/terms/) and [artwork attribution / branding status](docs/BRANDING.md).
 
 ## Building from source
 

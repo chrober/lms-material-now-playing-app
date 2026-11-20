@@ -95,7 +95,7 @@ Do not expose an unauthenticated Lyrion server to the public internet merely for
 
 - `.github/workflows/ci.yml` runs lint, unit tests and a debug APK build on PRs and changes to `main`. CI publishes a debug APK artifact for testing.
 - `.github/workflows/release.yml` builds, signs, and verifies the release APK, generates a SHA-256 checksum, and can publish a GitHub pre-release when triggered by a version tag or `publish/v*` branch.
-- A signed release APK uses the configured signing key, **not** the debug certificate. The package ID is `com.chrober.lmsmaterial.nowplaying`.
-- Lyrion branding was [approved by Michael Herger](https://github.com/chrober/lms-material-now-playing-app/issues/15#issuecomment-6979289683) while the app remains free and open source; release distribution is permitted within that scope.
+- A signed release APK uses the configured signing key, **not** the debug certificate. The package ID remains `com.chrober.lmsmaterial.nowplaying` after renaming the app to **Lyrion Display**, preserving in-place upgrades and the existing settings.
+- Lyrion branding was [approved by Michael Herger](https://github.com/chrober/lyrion-display/issues/15#issuecomment-6979289683) while the app remains free and open source; release distribution is permitted within that scope.
 
 See [Release instructions](RELEASING.md) for signing-key management and release mechanics.
