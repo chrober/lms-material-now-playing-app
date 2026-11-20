@@ -1,5 +1,7 @@
 # Lyrion Display
 
+[![Lyrion Display TV banner — fullscreen Now Playing display](artwork/lyrion-display-banner-source.webp)](artwork/lyrion-display-banner-source.webp)
+
 A lightweight Android app that turns a Fire TV, Android TV, tablet, or other compatible Android-based device into a dedicated, fullscreen **Now Playing display** for [Lyrion Music Server](https://lyrion.org/).
 
 The app uses [Material Skin](https://github.com/CDrummond/lms-material)'s existing `/material/np-only` page. It does **not** reimplement the Now Playing interface, control playback, or require changes to Material Skin.
