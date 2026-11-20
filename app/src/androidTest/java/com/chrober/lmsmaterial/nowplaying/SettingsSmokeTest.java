@@ -62,6 +62,7 @@ public final class SettingsSmokeTest {
                 assertNull(findText(root, "Save and show Now Playing"));
                 assertNull(findText(root, "Cancel and return to Now Playing"));
                 assertNotNull(findText(root, "Show date and time"));
+                assertNull(findText(root, "Playlist position shows the current track's place in the playback queue (for example, 7 / 42)."));
                 assertNotNull(findInput(root));
             });
         }
