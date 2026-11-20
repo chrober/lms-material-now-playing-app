@@ -334,6 +334,10 @@ public final class MainActivity extends Activity {
         if (settingsServer != null) {
             if (!settingsServer.equals(playersLoadedServer) || playerOptions.isEmpty()) {
                 loadPlayers();
+            } else {
+                // Appearance changes can recreate Settings without refetching
+                // players. Keep the status consistent with the restored list.
+                playerStatus.setText(availablePlayersLabel(playerOptions.size()));
             }
             loadMaterialCatalog(settingsServer);
         } else if (draftServer == null) {
@@ -522,6 +526,10 @@ public final class MainActivity extends Activity {
         });
     }
 
+    private static String availablePlayersLabel(int count) {
+        return count == 1 ? "1 player available" : count + " players available";
+    }
+
     private void loadPlayers() {
         String server = ServerAddress.normalize(serverInput.getText().toString());
         if (server == null) {
@@ -547,7 +555,7 @@ public final class MainActivity extends Activity {
                 playerStatus.setText("No players found on this server.");
                 return;
             }
-            playerStatus.setText(players.size() + " player(s) available");
+            playerStatus.setText(availablePlayersLabel(players.size()));
             String saved = draftPlayerId != null ? draftPlayerId : prefs.getString(KEY_PLAYER, "");
             for (int i = 0; i < players.size(); i++) {
                 if (saved.equals(players.get(i).id)) {
