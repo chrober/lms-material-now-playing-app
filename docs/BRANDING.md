@@ -17,15 +17,15 @@ The source images are committed so builds and resource regeneration do not depen
 
 | Resource | Dimensions | Use |
 | --- | ---: | --- |
-| `mipmap-mdpi/ic_launcher.webp` | 48 × 48 | Legacy launcher icon |
-| `mipmap-hdpi/ic_launcher.webp` | 72 × 72 | Legacy launcher icon |
-| `mipmap-xhdpi/ic_launcher.webp` | 96 × 96 | Legacy launcher icon |
-| `mipmap-xxhdpi/ic_launcher.webp` | 144 × 144 | Legacy launcher icon |
-| `mipmap-xxxhdpi/ic_launcher.webp` | 192 × 192 | Legacy launcher icon |
+| `mipmap-mdpi/ic_launcher.png` | 48 × 48 | Legacy launcher icon |
+| `mipmap-hdpi/ic_launcher.png` | 72 × 72 | Legacy launcher icon |
+| `mipmap-xhdpi/ic_launcher.png` | 96 × 96 | Legacy launcher icon |
+| `mipmap-xxhdpi/ic_launcher.png` | 144 × 144 | Legacy launcher icon |
+| `mipmap-xxxhdpi/ic_launcher.png` | 192 × 192 | Legacy launcher icon |
 | `drawable-nodpi/ic_launcher_foreground.webp` | 432 × 432 | Adaptive launcher foreground |
 | `drawable-nodpi/tv_banner.webp` | 640 × 360 | Optional Android TV / Fire TV banner |
 
-The adaptive launcher icon (Android API 26+) uses a transparent background and foreground. **Fire OS 6 / Android API 25** uses the legacy mipmap icon. Although the APK defines a separate `android:banner`, the Fire TV used during development has so far displayed the **square app icon** rather than the banner when installed by sideloading. A packaged banner does not guarantee that a particular TV launcher will show it.
+The adaptive launcher icon (Android API 26+) uses a transparent background and foreground. **Fire OS 6 / Android API 25** uses the legacy mipmap icon. The five classic launcher resources now use **PNG** rather than WebP for an experimental compatibility comparison with Kodi's legacy Android launcher images. This is **not** a proven fix for Amazon's Fire TV launcher caching issues. The source artwork remains WebP; CI validates the dimensions and contents of both source resources and built APK. Although the APK defines a separate `android:banner`, the Fire TV used during development has so far displayed the **square app icon** rather than the banner when installed by sideloading. A packaged banner does not guarantee that a particular TV launcher will show it.
 
 To regenerate optimized resources after editing the source images:
 
