@@ -94,6 +94,8 @@ Do not expose an unauthenticated Lyrion server to the public internet merely for
 ## CI and releases
 
 - `.github/workflows/ci.yml` runs lint, unit tests and a debug APK build on PRs and changes to `main`. CI publishes a debug APK artifact for testing.
+- `.github/workflows/android-emulator.yml` runs Android on-device smoke tests in an API 29 emulator on PRs and main.
+- CI also checks an unsigned release APK for F-Droid source-build readiness. See [F-Droid readiness](FDROID_READINESS.md).
 - `.github/workflows/release.yml` builds, signs, and verifies the release APK, generates a SHA-256 checksum, and can publish a GitHub pre-release when triggered by a version tag or `publish/v*` branch.
 - A signed release APK uses the configured signing key, **not** the debug certificate. The package ID remains `com.chrober.lmsmaterial.nowplaying` after renaming the app to **Lyrion Display**, preserving in-place upgrades and the existing settings.
 - Lyrion branding was [approved by Michael Herger](https://github.com/chrober/lyrion-display/issues/15#issuecomment-6979289683) while the app remains free and open source; release distribution is permitted within that scope.
