@@ -58,6 +58,9 @@ public final class MainActivity extends Activity {
     private static final String KEY_SERVER = "server";
     private static final String KEY_PLAYER = "player_id";
     private static final String KEY_KEEP_AWAKE = "keep_awake";
+    private static final String KEY_SHOW_PROGRESS = "show_progress";
+    private static final String KEY_SHOW_TECH_INFO = "show_technical_info";
+    private static final String KEY_SHOW_QUEUE_POSITION = "show_queue_position";
     private static final String KEY_THEME = "material_theme";
     private static final String KEY_COLOR = "material_color";
     private static final String KEY_COLOR_USAGE = "material_color_usage";
@@ -90,6 +93,9 @@ public final class MainActivity extends Activity {
     private Spinner playerSpinner;
     private TextView playerStatus;
     private CheckBox awakeCheckbox;
+    private CheckBox progressCheckbox;
+    private CheckBox technicalCheckbox;
+    private CheckBox queuePositionCheckbox;
     private Button startButton;
     private ScrollView settingsScroll;
     private Spinner themeSpinner;
@@ -310,6 +316,19 @@ public final class MainActivity extends Activity {
         add(content, label(supportsAwake
                 ? "Prevents Android's normal display timeout while this app is showing Now Playing. Normal power management resumes when the app is in the background."
                 : "Not supported on this device: no applicable Android display was detected.",
+                14, SUBTEXT, false), 0, 18);
+
+        content.addView(label("NOW PLAYING CONTENT", 15, ACCENT, true));
+        progressCheckbox = displayCheckbox("Show playback progress",
+                prefs.getBoolean(KEY_SHOW_PROGRESS, true));
+        add(content, progressCheckbox, 6, 2);
+        technicalCheckbox = displayCheckbox("Show technical track information",
+                prefs.getBoolean(KEY_SHOW_TECH_INFO, false));
+        add(content, technicalCheckbox, 0, 2);
+        queuePositionCheckbox = displayCheckbox("Show playlist position",
+                prefs.getBoolean(KEY_SHOW_QUEUE_POSITION, true));
+        add(content, queuePositionCheckbox, 0, 12);
+        add(content, label("Playlist position shows the current track's place in the playback queue (for example, 7 / 42).",
                 14, SUBTEXT, false), 0, 18);
 
         startButton = button("Save and show Now Playing");
@@ -583,6 +602,9 @@ public final class MainActivity extends Activity {
         prefs.edit().putString(KEY_SERVER, server)
                 .putString(KEY_PLAYER, playerOptions.get(pos - 1).id)
                 .putBoolean(KEY_KEEP_AWAKE, supportsAwake && awakeCheckbox.isChecked())
+                .putBoolean(KEY_SHOW_PROGRESS, progressCheckbox.isChecked())
+                .putBoolean(KEY_SHOW_TECH_INFO, technicalCheckbox.isChecked())
+                .putBoolean(KEY_SHOW_QUEUE_POSITION, queuePositionCheckbox.isChecked())
                 .apply();
         draftServer = null;
         draftPlayerId = null;
@@ -747,21 +769,11 @@ public final class MainActivity extends Activity {
      */
     private void verifyMaterialDisplay(WebView view, TextView loading, int retriesRemaining) {
         if (browser != view || !displayVisible) return;
-        String javascript = "(function(){try{" +
-                "if(!document.getElementById('app')) return 'missing';" +
-                "var colorKey='lms-material::colorUsage';" +
-                "var expected='" + prefs.getInt(KEY_COLOR_USAGE, MaterialTheme.COLOR_COVER) + "';" +
-                "var changed=false;" +
-                "if(localStorage.getItem(colorKey)!==expected){" +
-                "localStorage.setItem(colorKey,expected);changed=true;}" +
-                // Material Skin's 'Display technical info' preference is
-                // per-browser. Disable it only in this app's isolated WebView;
-                // other Material Skin clients keep their own preferences.
-                "var techKey='lms-material::techInfo';" +
-                "if(localStorage.getItem(techKey)==='true'){" +
-                "localStorage.setItem(techKey,'false');changed=true;}" +
-                "if(changed){location.reload();return 'reload';}" +
-                "return 'ready';}catch(e){return 'missing';}})()";
+        String javascript = NowPlayingDisplayOptions.script(
+                prefs.getInt(KEY_COLOR_USAGE, MaterialTheme.COLOR_COVER),
+                prefs.getBoolean(KEY_SHOW_PROGRESS, true),
+                prefs.getBoolean(KEY_SHOW_TECH_INFO, false),
+                prefs.getBoolean(KEY_SHOW_QUEUE_POSITION, true));
         view.evaluateJavascript(javascript, result -> {
             if (browser != view || !displayVisible) return;
             if ("\"reload\"".equals(result)) return;
@@ -1094,6 +1106,18 @@ public final class MainActivity extends Activity {
         label.setTextSize(size);
         if (bold) label.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         return label;
+    }
+
+    private CheckBox displayCheckbox(String text, boolean checked) {
+        CheckBox checkbox = new CheckBox(this);
+        checkbox.setText(text);
+        checkbox.setTextColor(TEXT);
+        checkbox.setTextSize(17);
+        checkbox.setButtonTintList(ColorStateList.valueOf(ACCENT));
+        checkbox.setBackground(focusBackground());
+        checkbox.setPadding(dp(10), dp(8), dp(10), dp(8));
+        checkbox.setChecked(checked);
+        return checkbox;
     }
 
     private EditText input(String value, String hint) {
