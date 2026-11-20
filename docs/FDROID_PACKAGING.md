@@ -71,6 +71,6 @@ Full instructions:
 
 MIT licensed. The bundled colored waveform is adapted from the upstream
 Material Android app and attributed under MIT, and Lyrion logo/name permission
-was granted for noncommercial open-source distribution as documented in
+was granted for free-and-open-source distribution as documented in
 [BRANDING.md](BRANDING.md). Recheck external artwork permissions and storefront
 screenshots before requesting inclusion.

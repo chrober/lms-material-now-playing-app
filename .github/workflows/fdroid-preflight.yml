@@ -68,6 +68,10 @@ jobs:
         run: |
           sdkmanager_bin="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
           "$sdkmanager_bin" --install 'platforms;android-35' 'build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '9.9.1'
+          cache-provider: basic
       - name: Install F-Droid tools
         run: python -m pip install --disable-pip-version-check fdroidserver PyYAML
       - name: Verify recipe
@@ -77,6 +81,9 @@ jobs:
         run: |
           cd fdroid
           printf "sdk_path: '%s'\n" "$ANDROID_HOME" > config.yml
+          # The pip package lacks gradlew-fdroid. Use the pinned Gradle 9.9.1
+          # for this local preflight; the official buildserver supplies its own wrapper.
+          printf "gradle: '%s'\n" "$(command -v gradle)" >> config.yml
           fdroid readmeta
           fdroid lint com.chrober.lmsmaterial.nowplaying
           # Work around local fdroidserver's missing SOURCE_DATE_EPOCH if the
