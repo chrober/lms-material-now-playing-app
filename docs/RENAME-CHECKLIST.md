@@ -18,7 +18,7 @@ The new public name does **not** mean a new Android app/package. The old app mus
 - [ ] Test `0.2.0` on the Fire TV: launch, server/player discovery, native settings, remote focus, gear, Material themes, display and keep-awake.
 - [ ] Specifically verify the **Fire TV Launcher icon** after first installation, app update, reboot and extended use; compare it with the icon under Fire TV's installed-app settings. PNG is an experiment, not a confirmed workaround for Amazon's launcher cache.
 - [ ] Verify a **signed release** updates the existing **signed release** in place with settings intact. A debug APK cannot normally update an installation signed with the release key.
-- [ ] Capture a fresh native settings screenshot that shows **Lyrion Display**. Add it as `screenshots/settings.jpg` and restore the two-column README screenshot preview.
+- [x] Add the approved **Lyrion Display** settings image (with anonymized server URL and **Living Room** player) as `screenshots/settings.webp`, and restore the two-column README screenshot preview.
 - [ ] After merging this PR, rename the GitHub repository to `chrober/lyrion-display` via GitHub Settings → General → Repository name. Verify documentation, releases and external links. GitHub normally redirects legacy repository URLs.
 - [ ] Ensure green CI, matching release tag/version and existing signing secrets before publishing the signed `v0.2.0` release.
 

@@ -12,9 +12,11 @@ This small Android wrapper provides a more convenient experience: discover a Lyr
 
 ## Screenshots
 
-[![Fullscreen Now Playing display showing album artwork, track information, and progress](screenshots/now-playing.jpg)](screenshots/now-playing.jpg)
+| Now Playing | Settings |
+| :---: | :---: |
+| <a href="screenshots/now-playing.jpg"><img src="screenshots/now-playing.jpg" alt="Fullscreen Now Playing display showing album artwork, track information and progress" width="510"></a> | <a href="screenshots/settings.webp"><img src="screenshots/settings.webp" alt="Lyrion Display settings including server, player, appearance and display options" width="290"></a> |
 
-An updated settings screenshot will be added after the rename is verified on a real device.
+<sub>The Settings image is an edited illustration based on the Android app, with example connection and player details for privacy.</sub>
 
 ## Features
 
