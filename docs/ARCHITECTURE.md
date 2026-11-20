@@ -8,7 +8,7 @@ This document contains implementation and platform details kept out of the [READ
 - The app first probes **Material Skin's existing** `/material/np-only` endpoint with a background GET and verifies its recognizable Now Playing redirect. The probe retries transient startup timeouts, missing-route responses, and unexpected pages before reporting an error. Only after success does it load the display in its WebView. Material Skin performs the rendering; no local HTML recreation or extra server plugin is involved.
 - The WebView is deliberately **view-only**: touch and media-control interactions with the page are blocked. The settings overlay remains interactive. This is a UI behavior, **not** an authorization or network-security barrier.
 - The selected server, player **ID**, keep-awake choice, and appearance settings are saved locally via Android `SharedPreferences`. A player rename therefore does not normally require reconfiguration.
-- The app can also be opened with an optional ADB `url` intent extra for development.
+- Debug builds can also be opened with an optional ADB `url` intent extra for development. Production-signed APKs ignore this extra: otherwise any third-party Android app could overwrite the saved server and player through the exported activity.
 
 ### Server discovery and player selection
 
@@ -82,7 +82,7 @@ adb install -r .\app\build\outputs\apk\debug\app-debug.apk
 
 For the 2018 Fire TV Stick 4K, `getprop ro.build.version.sdk` should report **25**.
 
-Optional ADB shortcut to configure a player by URL:
+Optional ADB shortcut to configure a player by URL (**debug builds only**):
 
 ```sh
 adb shell am start -n com.chrober.lmsmaterial.nowplaying/.MainActivity \

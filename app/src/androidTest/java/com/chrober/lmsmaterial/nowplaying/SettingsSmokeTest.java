@@ -54,7 +54,7 @@ public final class SettingsSmokeTest {
             scenario.onActivity(activity -> {
                 View root = activity.findViewById(android.R.id.content);
                 assertNotNull(findText(root, "Lyrion Display"));
-                assertNotNull(findText(root, "SERVER"));
+                assertNotNull(findText(root, "LYRION SERVER"));
                 assertNotNull(findText(root, "PLAYER"));
                 assertNotNull(findText(root, "Save and show Now Playing"));
                 assertNotNull(findInput(root));

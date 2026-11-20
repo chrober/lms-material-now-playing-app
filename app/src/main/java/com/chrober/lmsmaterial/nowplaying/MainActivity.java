@@ -126,6 +126,10 @@ public final class MainActivity extends Activity {
 
     /** Optional ADB convenience; no external URL is ever opened in a different app. */
     private boolean acceptUrlOverride(Intent intent) {
+        // MainActivity is exported. An arbitrary third-party application must
+        // not be able to overwrite the trusted server/player in production.
+        if ((getApplicationInfo().flags
+                & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) == 0) return false;
         String raw = intent == null ? null : intent.getStringExtra("url");
         if (TextUtils.isEmpty(raw)) return false;
         try {
