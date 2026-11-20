@@ -48,6 +48,7 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -58,6 +59,10 @@ public final class MainActivity extends Activity {
     private static final String KEY_SERVER = "server";
     private static final String KEY_PLAYER = "player_id";
     private static final String KEY_KEEP_AWAKE = "keep_awake";
+    private static final String KEY_SHOW_PROGRESS = "show_progress";
+    private static final String KEY_SHOW_TECH_INFO = "show_technical_info";
+    private static final String KEY_SHOW_QUEUE_POSITION = "show_queue_position";
+    private static final String KEY_SHOW_CLOCK = "show_material_clock";
     private static final String KEY_THEME = "material_theme";
     private static final String KEY_COLOR = "material_color";
     private static final String KEY_COLOR_USAGE = "material_color_usage";
@@ -85,12 +90,21 @@ public final class MainActivity extends Activity {
     private int requestSerial;
     private String activeUrl;
     private WebView browser;
+    private FrameLayout displayRoot;
+    private TextView displayLoading;
+    private String browserServer;
+    private String appliedOptionsScript;
+    private boolean browserReady;
     private ImageButton gearButton;
     private EditText serverInput;
     private Spinner playerSpinner;
     private TextView playerStatus;
     private CheckBox awakeCheckbox;
-    private Button startButton;
+    private CheckBox progressCheckbox;
+    private CheckBox technicalCheckbox;
+    private CheckBox queuePositionCheckbox;
+    private CheckBox clockCheckbox;
+    private Button returnButton;
     private ScrollView settingsScroll;
     private Spinner themeSpinner;
     private Spinner colorUsageSpinner;
@@ -102,7 +116,6 @@ public final class MainActivity extends Activity {
     private String playersLoadedServer = "";
     private String draftServer;
     private String draftPlayerId;
-    private Boolean draftKeepAwake;
     private int draftScrollY;
     private int focusAfterAppearanceChange = -1;
 
@@ -193,7 +206,10 @@ public final class MainActivity extends Activity {
         resolveThemePalette();
         requestSerial++;
         handler.removeCallbacks(hideGear);
-        gearButton = null;
+        if (gearButton != null) {
+            gearButton.animate().cancel();
+            gearButton.setVisibility(View.GONE);
+        }
         displayVisible = false;
         updateWakeFlag();
         setFullscreen(false);
@@ -208,7 +224,10 @@ public final class MainActivity extends Activity {
                 flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
         }
         getWindow().getDecorView().setSystemUiVisibility(flags);
-        destroyBrowser();
+        // Keep a verified Material Skin WebView alive off-screen. Returning
+        // from Settings should not repeat the network probe and initialization.
+        // Unverified or broken pages are never reused.
+        if (!browserReady) destroyBrowser();
 
         ScrollView scroll = new ScrollView(this);
         scroll.setBackgroundColor(BG);
@@ -303,8 +322,9 @@ public final class MainActivity extends Activity {
         awakeCheckbox.setButtonTintList(ColorStateList.valueOf(ACCENT));
         awakeCheckbox.setBackground(focusBackground());
         awakeCheckbox.setPadding(dp(10), dp(8), dp(10), dp(8));
-        awakeCheckbox.setChecked(draftKeepAwake != null
-                ? draftKeepAwake : prefs.getBoolean(KEY_KEEP_AWAKE, true));
+        awakeCheckbox.setChecked(prefs.getBoolean(KEY_KEEP_AWAKE, true));
+        awakeCheckbox.setOnCheckedChangeListener((button, checked) ->
+                prefs.edit().putBoolean(KEY_KEEP_AWAKE, checked).apply());
         awakeCheckbox.setEnabled(supportsAwake);
         add(content, awakeCheckbox, 5, 4);
         add(content, label(supportsAwake
@@ -312,24 +332,36 @@ public final class MainActivity extends Activity {
                 : "Not supported on this device: no applicable Android display was detected.",
                 14, SUBTEXT, false), 0, 18);
 
-        startButton = button("Save and show Now Playing");
-        startButton.setEnabled(false);
-        startButton.setOnClickListener(v -> saveSettings());
-        add(content, startButton, 0, 6);
-
-        if (configured()) {
-            Button cancel = button("Cancel and return to Now Playing");
-            cancel.setOnClickListener(v -> showDisplay());
-            add(content, cancel, 0, 6);
-        }
+        content.addView(label("NOW PLAYING CONTENT", 15, ACCENT, true));
+        progressCheckbox = displayCheckbox("Show playback progress",
+                prefs.getBoolean(KEY_SHOW_PROGRESS, true), KEY_SHOW_PROGRESS);
+        add(content, progressCheckbox, 6, 2);
+        technicalCheckbox = displayCheckbox("Show technical track information",
+                prefs.getBoolean(KEY_SHOW_TECH_INFO, false), KEY_SHOW_TECH_INFO);
+        add(content, technicalCheckbox, 0, 2);
+        queuePositionCheckbox = displayCheckbox("Show playlist position",
+                prefs.getBoolean(KEY_SHOW_QUEUE_POSITION, true), KEY_SHOW_QUEUE_POSITION);
+        add(content, queuePositionCheckbox, 0, 2);
+        clockCheckbox = displayCheckbox("Show date and time",
+                prefs.getBoolean(KEY_SHOW_CLOCK, false), KEY_SHOW_CLOCK);
+        add(content, clockCheckbox, 0, 12);
+        add(content, label(configured()
+                ? "Changes are saved automatically. Press Back to return to Now Playing."
+                : "Options save automatically. Select a server and player, then start Now Playing.",
+                14, SUBTEXT, false), 0, 16);
+        returnButton = button(configured() ? "Back to Now Playing" : "Start Now Playing");
+        returnButton.setEnabled(configured());
+        returnButton.setOnClickListener(v -> returnToNowPlaying());
+        add(content, returnButton, 0, 6);
         serverInput.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
                 requestSerial++;
+                draftPlayerId = null; // A new server requires a matching player selection.
                 playerOptions.clear();
+                playersLoadedServer = "";
                 showPlayerEntries();
                 playerStatus.setText("Refresh players for this server.");
-                playersLoadedServer = "";
                 themeCatalogServer = "";
             }
             @Override public void afterTextChanged(Editable s) { }
@@ -458,7 +490,6 @@ public final class MainActivity extends Activity {
             int pos = playerSpinner.getSelectedItemPosition();
             if (pos > 0 && pos <= playerOptions.size()) draftPlayerId = playerOptions.get(pos - 1).id;
         }
-        if (awakeCheckbox != null) draftKeepAwake = awakeCheckbox.isChecked();
         draftScrollY = settingsScroll == null ? 0 : settingsScroll.getScrollY();
         focusAfterAppearanceChange = focus;
         handler.post(() -> {
@@ -513,9 +544,14 @@ public final class MainActivity extends Activity {
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         playerSpinner.setAdapter(adapter);
         playerSpinner.setEnabled(!playerOptions.isEmpty());
-        if (startButton != null) startButton.setEnabled(false);
-        String wanted = draftPlayerId != null ? draftPlayerId : prefs.getString(KEY_PLAYER, "");
-        for (int i=0; i<playerOptions.size(); i++) {
+
+        String server = ServerAddress.normalize(serverInput.getText().toString());
+        // Never silently reselect a player from the previous server when the
+        // user is editing the server address. Preserve only matching drafts.
+        String wanted = draftPlayerId != null ? draftPlayerId
+                : server != null && server.equals(prefs.getString(KEY_SERVER, ""))
+                    ? prefs.getString(KEY_PLAYER, "") : "";
+        for (int i = 0; i < playerOptions.size(); i++) {
             if (playerOptions.get(i).id.equals(wanted)) {
                 playerSpinner.setSelection(i + 1);
                 break;
@@ -523,12 +559,33 @@ public final class MainActivity extends Activity {
         }
         playerSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
-                if (startButton != null) startButton.setEnabled(pos > 0 && pos <= playerOptions.size());
+                persistValidPlayerSelection(pos);
             }
             @Override public void onNothingSelected(AdapterView<?> parent) {
-                if (startButton != null) startButton.setEnabled(false);
+                updateReturnButton();
             }
         });
+        updateReturnButton();
+    }
+
+    /** Commit the connection atomically, only after a matching player was found. */
+    private void persistValidPlayerSelection(int pos) {
+        String server = ServerAddress.normalize(serverInput.getText().toString());
+        String playerId = SettingsConnection.validPlayerId(
+                serverInput.getText().toString(), playersLoadedServer, playerOptions, pos);
+        if (playerId != null) {
+            if (!server.equals(prefs.getString(KEY_SERVER, ""))
+                    || !playerId.equals(prefs.getString(KEY_PLAYER, ""))) {
+                prefs.edit().putString(KEY_SERVER, server)
+                        .putString(KEY_PLAYER, playerId).apply();
+            }
+            draftPlayerId = playerId;
+        }
+        updateReturnButton();
+    }
+
+    private void updateReturnButton() {
+        if (returnButton != null) returnButton.setEnabled(configured());
     }
 
     private static String availablePlayersLabel(int count) {
@@ -542,6 +599,7 @@ public final class MainActivity extends Activity {
             return;
         }
         int serial = ++requestSerial;
+        playersLoadedServer = "";
         playerOptions.clear();
         showPlayerEntries();
         playerStatus.setText("Loading players…");
@@ -561,32 +619,20 @@ public final class MainActivity extends Activity {
                 return;
             }
             playerStatus.setText(availablePlayersLabel(players.size()));
-            String saved = draftPlayerId != null ? draftPlayerId : prefs.getString(KEY_PLAYER, "");
-            for (int i = 0; i < players.size(); i++) {
-                if (saved.equals(players.get(i).id)) {
-                    playerSpinner.setSelection(i + 1);
-                    break;
-                }
-            }
         });
     }
 
-    private void saveSettings() {
-        String server = ServerAddress.normalize(serverInput.getText().toString());
-        int pos = playerSpinner.getSelectedItemPosition();
-        if (server == null || pos <= 0 || pos > playerOptions.size()) {
-            new AlertDialog.Builder(this)
-                    .setMessage("Select a valid server and one of its available players.")
-                    .setPositiveButton("OK", null).show();
+    /** Return with persisted options, preserving the last valid connection. */
+    private void returnToNowPlaying() {
+        if (!configured()) {
+            Toast.makeText(this, "Select a server and player first.", Toast.LENGTH_SHORT).show();
             return;
         }
-        prefs.edit().putString(KEY_SERVER, server)
-                .putString(KEY_PLAYER, playerOptions.get(pos - 1).id)
-                .putBoolean(KEY_KEEP_AWAKE, supportsAwake && awakeCheckbox.isChecked())
-                .apply();
-        draftServer = null;
-        draftPlayerId = null;
-        draftKeepAwake = null;
+        String entered = ServerAddress.normalize(serverInput.getText().toString());
+        if (!prefs.getString(KEY_SERVER, "").equals(entered)) {
+            Toast.makeText(this, "Server change not applied; using the last working connection.",
+                    Toast.LENGTH_LONG).show();
+        }
         showDisplay();
     }
 
@@ -594,30 +640,68 @@ public final class MainActivity extends Activity {
         if (!configured()) { showSettings("Configure a server and player first."); return; }
         draftServer = null;
         draftPlayerId = null;
-        draftKeepAwake = null;
         requestSerial++;
         displayVisible = true;
         handler.removeCallbacks(hideGear);
         setFullscreen(true);
         updateWakeFlag();
-        destroyBrowser();
 
         String server = ServerAddress.normalize(prefs.getString(KEY_SERVER, ""));
         String player = prefs.getString(KEY_PLAYER, "");
         String theme = prefs.getString(KEY_THEME, MaterialTheme.DEFAULT_THEME);
         String color = prefs.getString(KEY_COLOR, MaterialTheme.DEFAULT_COLOR);
         if (!MaterialTheme.safeKey(color)) color = MaterialTheme.DEFAULT_COLOR;
-        activeUrl = server + "/material/np-only?player=" + Uri.encode(player)
+        String nextUrl = server + "/material/np-only?player=" + Uri.encode(player)
                 + "&theme=" + MaterialTheme.urlTheme(theme) + "," + color;
+        String nextOptions = displayOptionsScript();
 
-        // Probe the actual Material Skin route before displaying its content.
-        // Some Lyrion servers return an HTML error document for missing plugins.
+        NowPlayingReturnPolicy.Action action = NowPlayingReturnPolicy.decide(
+                browserReady && browser != null && displayRoot != null && displayLoading != null,
+                browserServer, server, activeUrl, nextUrl, appliedOptionsScript, nextOptions);
+        if (action != NowPlayingReturnPolicy.Action.RECONNECT) {
+            // The same trusted server and already-initialized WebView are still
+            // available. Reattach its original view hierarchy without probing.
+            displayRoot.setBackgroundColor(BG);
+            displayLoading.setBackgroundColor(BG);
+            browser.setBackgroundColor(BG);
+            if (gearButton != null) {
+                gearButton.animate().cancel();
+                gearButton.setVisibility(View.GONE);
+            }
+            setContentView(displayRoot);
+            if (action == NowPlayingReturnPolicy.Action.REUSE) {
+                displayLoading.setVisibility(View.GONE);
+            } else if (action == NowPlayingReturnPolicy.Action.APPLY_OPTIONS) {
+                // CSS-only changes take effect in place. Material's own
+                // origin-local preference changes can request one reload.
+                displayLoading.setText("Applying display settings…");
+                displayLoading.setVisibility(View.VISIBLE);
+                browserReady = false;
+                verifyMaterialDisplay(browser, displayLoading, 4);
+            } else {
+                // Theme or selected player changed: navigate within the SAME
+                // trusted origin, keeping the existing WebView and its security
+                // client, but let Material Skin initialize the new page.
+                activeUrl = nextUrl;
+                browserReady = false;
+                displayLoading.setText("Connecting to Lyrion…");
+                displayLoading.setVisibility(View.VISIBLE);
+                browser.loadUrl(activeUrl);
+            }
+            return;
+        }
+
+        destroyBrowser();
+        activeUrl = nextUrl;
+        // Cold starts and server-origin changes still use the verified probe.
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(BG);
         TextView loading = label("Checking Material Skin…", 18, TEXT, false);
         loading.setGravity(Gravity.CENTER);
         loading.setBackgroundColor(BG);
         root.addView(loading, new FrameLayout.LayoutParams(-1, -1));
+        displayRoot = root;
+        displayLoading = loading;
         setContentView(root);
 
         final int serial = requestSerial;
@@ -635,6 +719,8 @@ public final class MainActivity extends Activity {
 
     private void loadNowPlaying(FrameLayout root, TextView loading) {
         final String trustedServer = ServerAddress.normalize(prefs.getString(KEY_SERVER, ""));
+        browserServer = trustedServer;
+        browserReady = false;
         browser = new WebView(this);
         browser.setBackgroundColor(BG);
         browser.setFocusable(false);
@@ -745,19 +831,24 @@ public final class MainActivity extends Activity {
      * The preflight proved the plugin endpoint exists. Give a cold WebView
      * several chances to initialize before reporting a display load failure.
      */
+    private String displayOptionsScript() {
+        return NowPlayingDisplayOptions.script(
+                prefs.getInt(KEY_COLOR_USAGE, MaterialTheme.COLOR_COVER),
+                prefs.getBoolean(KEY_SHOW_PROGRESS, true),
+                prefs.getBoolean(KEY_SHOW_TECH_INFO, false),
+                prefs.getBoolean(KEY_SHOW_QUEUE_POSITION, true),
+                prefs.getBoolean(KEY_SHOW_CLOCK, false));
+    }
+
     private void verifyMaterialDisplay(WebView view, TextView loading, int retriesRemaining) {
         if (browser != view || !displayVisible) return;
-        String javascript = "(function(){try{" +
-                "if(!document.getElementById('app')) return 'missing';" +
-                "var key='lms-material::colorUsage';" +
-                "var expected='" + prefs.getInt(KEY_COLOR_USAGE, MaterialTheme.COLOR_COVER) + "';" +
-                "if(localStorage.getItem(key)!==expected){" +
-                "localStorage.setItem(key,expected);location.reload();return 'reload';}" +
-                "return 'ready';}catch(e){return 'missing';}})()";
+        String javascript = displayOptionsScript();
         view.evaluateJavascript(javascript, result -> {
             if (browser != view || !displayVisible) return;
             if ("\"reload\"".equals(result)) return;
             if ("\"ready\"".equals(result)) {
+                browserReady = true;
+                appliedOptionsScript = javascript;
                 loading.setVisibility(View.GONE);
                 sampleWebPalette(view, null);
             } else if (retriesRemaining > 0) {
@@ -804,6 +895,9 @@ public final class MainActivity extends Activity {
 
     private void displayProblem(String title, String message) {
         if (!displayVisible || isFinishing()) return;
+        // A page that reported an HTTP/network/render failure is no longer a
+        // verified reuse candidate. Retry/Settings must take the guarded path.
+        browserReady = false;
         displayVisible = false;
         updateWakeFlag();
         new AlertDialog.Builder(this)
@@ -899,18 +993,25 @@ public final class MainActivity extends Activity {
 
     @Override public void onBackPressed() {
         if (displayVisible) finish();
-        else if (configured()) showDisplay();
+        else if (configured()) returnToNowPlaying();
         else finish();
     }
 
     private void destroyBrowser() {
-        if (browser == null) return;
-        browser.stopLoading();
-        browser.setWebViewClient(null);
-        if (browser.getParent() instanceof ViewGroup)
-            ((ViewGroup) browser.getParent()).removeView(browser);
-        browser.destroy();
+        WebView old = browser;
         browser = null;
+        browserReady = false;
+        browserServer = null;
+        appliedOptionsScript = null;
+        displayRoot = null;
+        displayLoading = null;
+        gearButton = null;
+        if (old == null) return;
+        old.stopLoading();
+        old.setWebViewClient(null);
+        if (old.getParent() instanceof ViewGroup)
+            ((ViewGroup) old.getParent()).removeView(old);
+        old.destroy();
     }
 
     private Button button(String text) {
@@ -1086,6 +1187,20 @@ public final class MainActivity extends Activity {
         label.setTextSize(size);
         if (bold) label.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         return label;
+    }
+
+    private CheckBox displayCheckbox(String text, boolean checked, String preferenceKey) {
+        CheckBox checkbox = new CheckBox(this);
+        checkbox.setText(text);
+        checkbox.setTextColor(TEXT);
+        checkbox.setTextSize(17);
+        checkbox.setButtonTintList(ColorStateList.valueOf(ACCENT));
+        checkbox.setBackground(focusBackground());
+        checkbox.setPadding(dp(10), dp(8), dp(10), dp(8));
+        checkbox.setChecked(checked);
+        checkbox.setOnCheckedChangeListener((button, value) ->
+                prefs.edit().putBoolean(preferenceKey, value).apply());
+        return checkbox;
     }
 
     private EditText input(String value, String hint) {
