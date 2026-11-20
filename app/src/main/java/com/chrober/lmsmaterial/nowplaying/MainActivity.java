@@ -109,6 +109,9 @@ public final class MainActivity extends Activity {
     private String draftServer;
     private String draftPlayerId;
     private Boolean draftKeepAwake;
+    private Boolean draftShowProgress;
+    private Boolean draftShowTechInfo;
+    private Boolean draftShowQueuePosition;
     private int draftScrollY;
     private int focusAfterAppearanceChange = -1;
 
@@ -320,13 +323,16 @@ public final class MainActivity extends Activity {
 
         content.addView(label("NOW PLAYING CONTENT", 15, ACCENT, true));
         progressCheckbox = displayCheckbox("Show playback progress",
-                prefs.getBoolean(KEY_SHOW_PROGRESS, true));
+                draftShowProgress != null ? draftShowProgress
+                        : prefs.getBoolean(KEY_SHOW_PROGRESS, true));
         add(content, progressCheckbox, 6, 2);
         technicalCheckbox = displayCheckbox("Show technical track information",
-                prefs.getBoolean(KEY_SHOW_TECH_INFO, false));
+                draftShowTechInfo != null ? draftShowTechInfo
+                        : prefs.getBoolean(KEY_SHOW_TECH_INFO, false));
         add(content, technicalCheckbox, 0, 2);
         queuePositionCheckbox = displayCheckbox("Show playlist position",
-                prefs.getBoolean(KEY_SHOW_QUEUE_POSITION, true));
+                draftShowQueuePosition != null ? draftShowQueuePosition
+                        : prefs.getBoolean(KEY_SHOW_QUEUE_POSITION, true));
         add(content, queuePositionCheckbox, 0, 12);
         add(content, label("Playlist position shows the current track's place in the playback queue (for example, 7 / 42).",
                 14, SUBTEXT, false), 0, 18);
@@ -478,6 +484,10 @@ public final class MainActivity extends Activity {
             if (pos > 0 && pos <= playerOptions.size()) draftPlayerId = playerOptions.get(pos - 1).id;
         }
         if (awakeCheckbox != null) draftKeepAwake = awakeCheckbox.isChecked();
+        if (progressCheckbox != null) draftShowProgress = progressCheckbox.isChecked();
+        if (technicalCheckbox != null) draftShowTechInfo = technicalCheckbox.isChecked();
+        if (queuePositionCheckbox != null)
+            draftShowQueuePosition = queuePositionCheckbox.isChecked();
         draftScrollY = settingsScroll == null ? 0 : settingsScroll.getScrollY();
         focusAfterAppearanceChange = focus;
         handler.post(() -> {
@@ -609,6 +619,9 @@ public final class MainActivity extends Activity {
         draftServer = null;
         draftPlayerId = null;
         draftKeepAwake = null;
+        draftShowProgress = null;
+        draftShowTechInfo = null;
+        draftShowQueuePosition = null;
         showDisplay();
     }
 
@@ -617,6 +630,9 @@ public final class MainActivity extends Activity {
         draftServer = null;
         draftPlayerId = null;
         draftKeepAwake = null;
+        draftShowProgress = null;
+        draftShowTechInfo = null;
+        draftShowQueuePosition = null;
         requestSerial++;
         displayVisible = true;
         handler.removeCallbacks(hideGear);
