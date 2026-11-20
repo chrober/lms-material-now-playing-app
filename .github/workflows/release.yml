@@ -32,7 +32,7 @@ jobs:
           # setup-android@v3 currently attempts to install the retired "tools" package.
           sdkmanager_bin="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
           test -n "$sdkmanager_bin" && test -x "$sdkmanager_bin"
-          "$sdkmanager_bin" --install 'platforms;android-35' 'build-tools;35.0.0'
+          "$sdkmanager_bin" --install 'platforms;android-35' 'build-tools;35.0.0' 'build-tools;34.0.0'
       - uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: '9.9.1'
@@ -83,20 +83,37 @@ jobs:
         run: python3 tools/verify_launcher_assets.py
       - name: Lint and test
         run: gradle --no-daemon :app:lintDebug :app:testDebugUnitTest
-      - name: Build signed release APK
+      - name: Build unsigned release APK
+        shell: bash
+        run: |
+          # Reproducible upstream signing requires source-built unsigned APKs.
+          test -z "${ANDROID_KEYSTORE_PATH:-}"
+          gradle --no-daemon :app:assembleRelease
+          test -s app/build/outputs/apk/release/app-release-unsigned.apk
+      - name: Verify PNG resources inside unsigned APK
+        run: python3 tools/verify_launcher_assets.py app/build/outputs/apk/release/app-release-unsigned.apk
+      - name: Install signing comparison utility
+        run: python3 -m pip install --disable-pip-version-check 'apksigcopier==1.1.1'
+      - name: Sign with reproducible build-tools 34 and verify
+        shell: bash
         env:
-          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/release.keystore
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: gradle --no-daemon :app:assembleRelease
-      - name: Verify PNG resources inside built APK
-        run: python3 tools/verify_launcher_assets.py app/build/outputs/apk/release/app-release.apk
-      - name: Verify signed APK
+        run: |
+          bash tools/sign_reproducible_apk.sh \
+            app/build/outputs/apk/release/app-release-unsigned.apk \
+            app/build/outputs/apk/release/app-release.apk \
+            "$RUNNER_TEMP/release.keystore"
+          python3 tools/verify_launcher_assets.py app/build/outputs/apk/release/app-release.apk
+      - name: Verify release identity and name APK
         env:
           RELEASE_TAG: ${{ steps.release_tag.outputs.tag }}
+        shell: bash
         run: |
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose app/build/outputs/apk/release/app-release.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging app/build/outputs/apk/release/app-release.apk > "$RUNNER_TEMP/app-badging"
+          grep -Eq "^package: name='com.chrober.lmsmaterial.nowplaying' versionCode='[0-9]+' versionName='${RELEASE_TAG#v}'" "$RUNNER_TEMP/app-badging"
+          grep -q "application-label:'Lyrion Display'" "$RUNNER_TEMP/app-badging"
           cp app/build/outputs/apk/release/app-release.apk "lyrion-display-${RELEASE_TAG}.apk"
           sha256sum "lyrion-display-${RELEASE_TAG}.apk" > "lyrion-display-${RELEASE_TAG}.apk.sha256"
       - name: Publish GitHub release

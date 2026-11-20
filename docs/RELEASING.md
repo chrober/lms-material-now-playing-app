@@ -4,7 +4,7 @@
 
 A release is published when a tag beginning with `v` is pushed (for example `v0.1.0`). For GitHub-only publication without a local tag push, a push to `publish/vX.Y.Z` also builds the signed APK and creates the matching tag and GitHub Release. Both routes require the tag to match `versionName` in `app/build.gradle`.
 
-Before publishing `v0.2.0`, complete the [rename checklist](RENAME-CHECKLIST.md). The TV banner must show the new name; keep the Android application ID and signing credentials unchanged.
+The previously published `v0.2.0` must not be rebuilt or retagged. For the next release (at least `versionCode` 9), keep the Android application ID and the existing production signing credentials unchanged.
 
 ## 1. Create and safeguard your release keystore
 
@@ -46,7 +46,9 @@ Secrets are made available only to the release job; pull request CI does not use
 2. Update both `versionCode` (integer, must increase for updates) and `versionName` (e.g. `0.1.0`) in `app/build.gradle`.
 3. Merge any necessary updates to `main`.
 4. Tag the desired commit: `git tag v0.1.0` and `git push origin v0.1.0`. Alternatively, push a dedicated branch named `publish/v0.1.0` at the chosen source commit to build and publish directly via GitHub Actions; the workflow creates the release tag at that commit.
-5. Watch the **Publish Android release** workflow. It checks the tag/version match, lints/tests, builds and verifies the signed APK, and uploads it as `lyrion-display-vX.Y.Z.apk` together with a matching `.sha256` file to a GitHub **pre-release**. The title is `Lyrion Display vX.Y.Z`.
+5. Watch the **Publish Android release** workflow. It checks the tag/version match, lints/tests, builds an **unsigned** release APK, signs it with the existing production key using Android build-tools **34.0.0**, verifies the certificate fingerprint and `apksigcopier` signature-copy compatibility, and uploads `lyrion-display-vX.Y.Z.apk` plus its `.sha256` to a GitHub **pre-release**. The title is `Lyrion Display vX.Y.Z`.
+
+The `apksigcopier` check compares the signed APK to its original unsigned input. It **does not** replace an independent F-Droid source-build verification of the exact tagged release. Follow the [F-Droid packaging checklist](FDROID_PACKAGING.md) before submitting a F-Droid metadata change. **No F-Droid submission is triggered by this release workflow.**
 
 **Do not tag a release until the four signing secrets have been configured.** If a job fails, inspect the workflow log; the publish step runs only after successful verification.
 
