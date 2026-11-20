@@ -1,0 +1,61 @@
+name: Signed screenshot APK (temporary)
+on:
+  push:
+    branches: [rename/lyrion-display-v0.2.0]
+    paths: [.github/workflows/screenshot-test-apk.yml]
+permissions:
+  contents: read
+jobs:
+  signed-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK
+        shell: bash
+        run: |
+          sdkmanager_bin="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          test -n "$sdkmanager_bin" && test -x "$sdkmanager_bin"
+          "$sdkmanager_bin" --install 'platforms;android-35' 'build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '9.9.1'
+          cache-provider: basic
+      - name: Verify signing credentials
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          [[ -n "$KEYSTORE" && -n "$STORE_PASS" && -n "$KEY_ALIAS" && -n "$KEY_PASS" ]] || {
+            echo "::error::Existing production signing secrets unavailable"
+            exit 1
+          }
+          printf '%s' "$KEYSTORE" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+          chmod 600 "$RUNNER_TEMP/release.keystore"
+      - name: Lint, tests and signed APK
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/release.keystore
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          python3 tools/verify_launcher_assets.py
+          gradle --no-daemon :app:lintDebug :app:testDebugUnitTest :app:assembleRelease
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose app/build/outputs/apk/release/app-release.apk
+          python3 tools/verify_launcher_assets.py app/build/outputs/apk/release/app-release.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging app/build/outputs/apk/release/app-release.apk | head -n 8
+      - name: Stage signed test APK
+        run: cp app/build/outputs/apk/release/app-release.apk lyrion-display-v0.2.0-settings-review.apk
+      - name: Upload signed test APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: lyrion-display-settings-review
+          path: lyrion-display-v0.2.0-settings-review.apk
+          retention-days: 14
+          if-no-files-found: error
