@@ -56,7 +56,12 @@ public final class SettingsSmokeTest {
                 assertNotNull(findText(root, "Lyrion Display"));
                 assertNotNull(findText(root, "LYRION SERVER"));
                 assertNotNull(findText(root, "PLAYER"));
-                assertNotNull(findText(root, "Save and show Now Playing"));
+                Button start = (Button) findText(root, "Start Now Playing");
+                assertNotNull(start);
+                assertFalse(start.isEnabled());
+                assertNull(findText(root, "Save and show Now Playing"));
+                assertNull(findText(root, "Cancel and return to Now Playing"));
+                assertNotNull(findText(root, "Show date and time"));
                 assertNotNull(findInput(root));
             });
         }
@@ -67,11 +72,11 @@ public final class SettingsSmokeTest {
             scenario.onActivity(activity -> {
                 View root = activity.findViewById(android.R.id.content);
                 EditText input = findInput(root);
-                Button save = (Button) findText(root, "Save and show Now Playing");
+                Button start = (Button) findText(root, "Start Now Playing");
                 assertNotNull(input);
-                assertNotNull(save);
+                assertNotNull(start);
                 input.setText("ftp://not-a-lyrion-server");
-                save.performClick();
+                assertFalse(start.isEnabled());
                 String configured = activity.getSharedPreferences(
                         "material_now_playing", Context.MODE_PRIVATE).getString("server", "");
                 assertEquals("", configured);
@@ -88,4 +93,36 @@ public final class SettingsSmokeTest {
         }
     }
 
+
+    @Test public void contentOptionsSaveImmediatelyWithoutSavingButton() {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                View root = activity.findViewById(android.R.id.content);
+                android.widget.CheckBox technical = (android.widget.CheckBox)
+                        findText(root, "Show technical track information");
+                android.widget.CheckBox clock = (android.widget.CheckBox)
+                        findText(root, "Show date and time");
+                assertNotNull(technical);
+                assertNotNull(clock);
+                assertFalse(technical.isChecked());
+                assertFalse(clock.isChecked());
+                technical.performClick();
+                clock.performClick();
+                android.content.SharedPreferences prefs = activity.getSharedPreferences(
+                        "material_now_playing", Context.MODE_PRIVATE);
+                assertTrue(prefs.getBoolean("show_technical_info", false));
+                assertTrue(prefs.getBoolean("show_material_clock", false));
+                assertEquals("", prefs.getString("server", ""));
+            });
+            // Saving on change survives a settings recreation without pressing Back.
+            scenario.recreate();
+            scenario.onActivity(activity -> {
+                View root = activity.findViewById(android.R.id.content);
+                assertTrue(((android.widget.CheckBox) findText(
+                        root, "Show technical track information")).isChecked());
+                assertTrue(((android.widget.CheckBox) findText(
+                        root, "Show date and time")).isChecked());
+            });
+        }
+    }
 }
