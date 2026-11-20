@@ -58,6 +58,9 @@ def check(path: pathlib.Path) -> None:
     # This snapshot was merged *after* v0.2.0, and is deliberately NOT that release tag.
     released_sha = git("rev-list", "-n", "1", "refs/tags/v0.2.0")
     assert sha != released_sha, "Do not confuse QA snapshot with published v0.2.0"
+    pinned_wrapper = git("show", sha + ":gradle/wrapper/gradle-wrapper.properties")
+    assert "gradle-9.9.1-bin.zip" in pinned_wrapper, (
+        "Pinned source commit must contain the Gradle version selection")
     assert script.find("if (System.getenv('ANDROID_KEYSTORE_PATH'))") >= 0, (
         "Source must permit unsigned release APK builds")
     wrapper = pathlib.Path("gradle/wrapper/gradle-wrapper.properties").read_text()

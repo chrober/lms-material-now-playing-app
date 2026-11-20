@@ -5,7 +5,7 @@ The canonical app package name is `com.chrober.lmsmaterial.nowplaying`, despite 
 ## Recipe status
 
 `fdroid/metadata/com.chrober.lmsmaterial.nowplaying.yml` is a **disabled review-only build** pointing at QA merge commit
-`e3c5ba66683158b287d9bad18f27cb44f2266ae1`. That commit still declares
+`35b1749c9d4036ec765aaee51b7dfa2de43ed8a1`. That packaging snapshot commit includes the Gradle pin and still declares
 `0.2.0` / versionCode 8, but **it is NOT the published `v0.2.0` release source**.
 Do **not** submit this entry or enable the build.
 

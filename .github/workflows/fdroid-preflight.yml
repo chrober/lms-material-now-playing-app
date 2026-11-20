@@ -79,8 +79,23 @@ jobs:
           printf "sdk_path: '%s'\n" "$ANDROID_HOME" > config.yml
           fdroid readmeta
           fdroid lint com.chrober.lmsmaterial.nowplaying
+          # Work around local fdroidserver's missing SOURCE_DATE_EPOCH if the
+          # repository has not been materialized yet (the build server has it).
+          mkdir -p build
+          git clone --quiet --no-checkout \
+            https://github.com/chrober/lyrion-display.git \
+            build/com.chrober.lmsmaterial.nowplaying
+          git -C build/com.chrober.lmsmaterial.nowplaying checkout --quiet 35b1749c9d4036ec765aaee51b7dfa2de43ed8a1
           # --force is limited to this deliberate QA run; --test avoids publishing.
-          fdroid build --test --force com.chrober.lmsmaterial.nowplaying
+          set -o pipefail
+          fdroid build --test --force --verbose com.chrober.lmsmaterial.nowplaying 2>&1 | tee build-preflight.log
+          # fdroidserver's --test mode can report a failed build with exit code 0.
+          # Check the actual build output rather than trusting the process status.
+          test -s tmp/com.chrober.lmsmaterial.nowplaying_8.apk
+          if grep -Eq '[1-9][0-9]* build(s)? failed' build-preflight.log; then
+            echo "::error::fdroidserver reported one or more failed builds"
+            exit 1
+          fi
       - name: Upload diagnostic F-Droid build logs (no APK publication)
         if: always()
         uses: actions/upload-artifact@v7
@@ -88,6 +103,6 @@ jobs:
           name: fdroid-build-preflight-logs
           path: |
             fdroid/logs/
-            fdroid/tmp/
+            fdroid/tmp/\n            fdroid/build-preflight.log
           retention-days: 7
           if-no-files-found: ignore
