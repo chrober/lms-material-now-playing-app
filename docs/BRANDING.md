@@ -9,7 +9,7 @@ The upstream vector is retained in [`artwork/upstream-material-icon-foreground.x
 ## Source artwork
 
 - `artwork/lyrion-now-playing-icon-source.webp` — 512 × 512, with a transparent region outside the monitor frame and stand.
-- `artwork/lyrion-now-playing-banner-source.webp` — 640 × 360, landscape TV banner.
+- `artwork/lyrion-display-banner-source.webp` — 640 × 360, landscape TV banner.
 
 The source images are committed so builds and resource regeneration do not depend on an image-generation service.
 

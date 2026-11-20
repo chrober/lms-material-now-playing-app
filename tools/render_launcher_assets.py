@@ -30,7 +30,7 @@ target = RES / "drawable-nodpi"
 target.mkdir(parents=True, exist_ok=True)
 adaptive.save(target / "ic_launcher_foreground.webp", format="WEBP", quality=92, method=6)
 
-banner = Image.open(ART / "lyrion-now-playing-banner-source.webp").convert("RGB")
+banner = Image.open(ART / "lyrion-display-banner-source.webp").convert("RGB")
 assert banner.size == (640, 360), "The TV banner source must be 640x360"
 banner.save(target / "tv_banner.webp", format="WEBP", quality=90, method=6)
 print("Updated PNG launcher icons and WebP adaptive/TV resources")
