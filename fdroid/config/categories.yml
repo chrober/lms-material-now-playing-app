@@ -1,0 +1,4 @@
+# Local *preflight* category registry, not an F-Droid submission asset.
+# The official fdroiddata contains the complete config/categories.yml list.
+Multimedia:
+  name: Multimedia

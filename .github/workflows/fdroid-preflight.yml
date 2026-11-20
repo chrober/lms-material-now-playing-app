@@ -1,0 +1,116 @@
+name: F-Droid metadata and source-build preflight (no publishing)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - fdroid/**
+      - gradle/wrapper/gradle-wrapper.properties
+      - tools/check_fdroid_recipe.py
+      - .github/workflows/fdroid-preflight.yml
+  workflow_dispatch:
+    inputs:
+      source_build:
+        description: 'Also run fdroid build --test --force on the disabled snapshot'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fdroid-preflight-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fdroid-metadata:
+    name: Validate disabled F-Droid recipe with fdroidserver
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install F-Droid metadata tools
+        run: python -m pip install --disable-pip-version-check fdroidserver PyYAML
+      - name: Check version, source SHA and disabled recipe
+        run: python tools/check_fdroid_recipe.py
+      - name: Validate using F-Droid's metadata parser and linter
+        shell: bash
+        run: |
+          cd fdroid
+          fdroid readmeta
+          fdroid lint com.chrober.lmsmaterial.nowplaying
+
+  fdroid-source-build:
+    name: F-Droid source build (manual, unpublished)
+    if: github.event_name == 'workflow_dispatch' && inputs.source_build
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android build tools
+        shell: bash
+        run: |
+          sdkmanager_bin="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          "$sdkmanager_bin" --install 'platforms;android-35' 'build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '9.9.1'
+          cache-provider: basic
+      - name: Install F-Droid tools
+        run: python -m pip install --disable-pip-version-check fdroidserver PyYAML
+      - name: Verify recipe
+        run: python tools/check_fdroid_recipe.py
+      - name: Build the disabled snapshot with F-Droid's scanner/build pipeline
+        shell: bash
+        run: |
+          cd fdroid
+          printf "sdk_path: '%s'\n" "$ANDROID_HOME" > config.yml
+          # The pip package lacks gradlew-fdroid. Use the pinned Gradle 9.9.1
+          # for this local preflight; the official buildserver supplies its own wrapper.
+          printf "gradle: '%s'\n" "$(command -v gradle)" >> config.yml
+          fdroid readmeta
+          fdroid lint com.chrober.lmsmaterial.nowplaying
+          # Work around local fdroidserver's missing SOURCE_DATE_EPOCH if the
+          # repository has not been materialized yet (the build server has it).
+          mkdir -p build
+          git clone --quiet --no-checkout \
+            https://github.com/chrober/lyrion-display.git \
+            build/com.chrober.lmsmaterial.nowplaying
+          git -C build/com.chrober.lmsmaterial.nowplaying checkout --quiet 35b1749c9d4036ec765aaee51b7dfa2de43ed8a1
+          # --force is limited to this deliberate QA run; --test avoids publishing.
+          set -o pipefail
+          fdroid build --test --force --verbose com.chrober.lmsmaterial.nowplaying 2>&1 | tee build-preflight.log
+          # fdroidserver's --test mode can report a failed build with exit code 0.
+          # Check the actual build output rather than trusting the process status.
+          test -s tmp/com.chrober.lmsmaterial.nowplaying_8.apk
+          if grep -Eq '[1-9][0-9]* build(s)? failed' build-preflight.log; then
+            echo "::error::fdroidserver reported one or more failed builds"
+            exit 1
+          fi
+      - name: Upload diagnostic F-Droid build logs (no APK publication)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fdroid-build-preflight-logs
+          path: |
+            fdroid/logs/
+            fdroid/tmp/
+            fdroid/build-preflight.log
+          retention-days: 7
+          if-no-files-found: ignore
