@@ -1,0 +1,101 @@
+name: Rebrand existing 640x360 TV banner (one-time)
+
+on:
+  push:
+    branches:
+      - rename/lyrion-display-v0.2.0
+    paths:
+      - .github/workflows/rebrand-tv-banner-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  banner:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install image tools
+        run: python -m pip install Pillow==11.3.0 numpy==2.2.6 opencv-python-headless==4.11.0.86
+      - name: Retain original banner art and replace the title
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import cv2
+          import numpy as np
+          from PIL import Image, ImageDraw, ImageFont
+
+          root = Path('artwork')
+          old = root / 'lyrion-now-playing-banner-source.webp'
+          new = root / 'lyrion-display-banner-source.webp'
+          original = Image.open(old).convert('RGB')
+          assert original.size == (640, 360), original.size
+
+          pixels = np.asarray(original).copy()
+          # Mask the original WHITE headline only. Keep the neon icon,
+          # equalizer and wave artwork completely unchanged.
+          mask = np.zeros(pixels.shape[:2], dtype=np.uint8)
+          x1, y1, x2, y2 = 225, 116, 543, 161
+          region = pixels[y1:y2, x1:x2]
+          hi = region.max(axis=2).astype(np.int16)
+          lo = region.min(axis=2).astype(np.int16)
+          text = (lo > 82) & ((hi - lo) < 58)
+          mask[y1:y2, x1:x2] = text.astype(np.uint8) * 255
+          kernel = np.ones((3, 3), np.uint8)
+          mask = cv2.dilate(mask, kernel, iterations=1)
+          # Recreate the dark, gently graded background under old glyphs.
+          bg = cv2.inpaint(pixels, mask, inpaintRadius=7, flags=cv2.INPAINT_TELEA)
+          banner = Image.fromarray(bg, 'RGB')
+          draw = ImageDraw.Draw(banner)
+          font_path = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
+          font = ImageFont.truetype(font_path, 29)
+          draw.text((227, 119), 'Lyrion Display', font=font, fill=(252, 251, 255))
+
+          banner.save(new, 'WEBP', quality=96, method=6)
+          target = Path('app/src/main/res/drawable-nodpi/tv_banner.webp')
+          banner.save(target, 'WEBP', quality=90, method=6)
+          old.unlink()
+
+          # Make future image regeneration use the renamed source.
+          script = Path('tools/render_launcher_assets.py')
+          t = script.read_text()
+          previous = 'artwork/lyrion-now-playing-banner-source.webp'
+          needle = 'lyrion-now-playing-banner-source.webp'
+          assert needle in t, 'Missing banner source filename in generator'
+          script.write_text(t.replace(needle, 'lyrion-display-banner-source.webp'))
+
+          docs = Path('docs/BRANDING.md')
+          t = docs.read_text()
+          assert previous in t, 'Missing banner source in branding docs'
+          docs.write_text(t.replace(previous, 'artwork/lyrion-display-banner-source.webp'))
+
+          checklist = Path('docs/RENAME-CHECKLIST.md')
+          t = checklist.read_text()
+          old_item = '- [ ] Preserve the existing 640 × 360 TV banner design but replace its visible **Lyrion Now Playing** headline with **Lyrion Display** in `artwork/lyrion-now-playing-banner-source.webp`; regenerate `app/src/main/res/drawable-nodpi/tv_banner.webp`. TV launchers may show this even though the tested Fire TV launcher shows the square icon.'
+          new_item = '- [x] Preserve the existing 640 × 360 TV banner design and replace its visible **Lyrion Now Playing** headline with **Lyrion Display** in `artwork/lyrion-display-banner-source.webp`; regenerate `app/src/main/res/drawable-nodpi/tv_banner.webp`. TV launchers may show this even though the tested Fire TV launcher shows the square icon.'
+          assert old_item in t, 'Missing banner TODO checklist entry'
+          checklist.write_text(t.replace(old_item, new_item))
+
+          with Image.open(new) as check:
+              assert check.size == (640, 360)
+          with Image.open(target) as check:
+              assert check.size == (640, 360)
+          print('BANNER READY', new, new.stat().st_size, target, target.stat().st_size)
+          PY
+      - name: Commit rebranded source and packaged banner
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A artwork/lyrion-now-playing-banner-source.webp artwork/lyrion-display-banner-source.webp app/src/main/res/drawable-nodpi/tv_banner.webp tools/render_launcher_assets.py docs/BRANDING.md docs/RENAME-CHECKLIST.md
+          git diff --cached --stat
+          git diff --cached --quiet && exit 0
+          git commit -m "assets: rebrand TV banner to Lyrion Display"
+          git push origin HEAD:rename/lyrion-display-v0.2.0
