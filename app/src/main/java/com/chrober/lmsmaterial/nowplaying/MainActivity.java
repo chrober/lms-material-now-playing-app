@@ -895,6 +895,9 @@ public final class MainActivity extends Activity {
 
     private void displayProblem(String title, String message) {
         if (!displayVisible || isFinishing()) return;
+        // A page that reported an HTTP/network/render failure is no longer a
+        // verified reuse candidate. Retry/Settings must take the guarded path.
+        browserReady = false;
         displayVisible = false;
         updateWakeFlag();
         new AlertDialog.Builder(this)
