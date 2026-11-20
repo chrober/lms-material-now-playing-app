@@ -630,6 +630,7 @@ public final class MainActivity extends Activity {
     }
 
     private void loadNowPlaying(FrameLayout root, TextView loading) {
+        final String trustedServer = ServerAddress.normalize(prefs.getString(KEY_SERVER, ""));
         browser = new WebView(this);
         browser.setBackgroundColor(BG);
         browser.setFocusable(false);
@@ -660,15 +661,15 @@ public final class MainActivity extends Activity {
                     WebResourceRequest request) {
                 return request.isForMainFrame()
                         && !ServerAddress.isAllowedMaterialNavigation(
-                                server, request.getUrl().toString());
+                                trustedServer, request.getUrl().toString());
             }
             @SuppressWarnings("deprecation")
             @Override public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                return !ServerAddress.isAllowedMaterialNavigation(server, url);
+                return !ServerAddress.isAllowedMaterialNavigation(trustedServer, url);
             }
             @Override public void onPageStarted(WebView view, String url, Bitmap favicon) {
                 if (browser == view && displayVisible
-                        && !ServerAddress.isAllowedMaterialNavigation(server, url)) {
+                        && !ServerAddress.isAllowedMaterialNavigation(trustedServer, url)) {
                     view.stopLoading();
                     connectionFailed("Blocked navigation outside this Lyrion server.");
                 }
