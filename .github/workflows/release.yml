@@ -79,6 +79,8 @@ jobs:
         run: |
           printf '%s' "$RELEASE_KEYSTORE" | base64 --decode > "$RUNNER_TEMP/release.keystore"
           chmod 600 "$RUNNER_TEMP/release.keystore"
+      - name: Verify classic PNG icon assets
+        run: python3 tools/verify_launcher_assets.py
       - name: Lint and test
         run: gradle --no-daemon :app:lintDebug :app:testDebugUnitTest
       - name: Build signed release APK
@@ -88,6 +90,8 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: gradle --no-daemon :app:assembleRelease
+      - name: Verify PNG resources inside built APK
+        run: python3 tools/verify_launcher_assets.py app/build/outputs/apk/release/app-release.apk
       - name: Verify signed APK
         env:
           RELEASE_TAG: ${{ steps.release_tag.outputs.tag }}
