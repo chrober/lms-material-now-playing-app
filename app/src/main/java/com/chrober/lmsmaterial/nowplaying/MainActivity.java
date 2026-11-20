@@ -48,6 +48,7 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -98,7 +99,7 @@ public final class MainActivity extends Activity {
     private CheckBox technicalCheckbox;
     private CheckBox queuePositionCheckbox;
     private CheckBox clockCheckbox;
-    private Button startButton;
+    private Button returnButton;
     private ScrollView settingsScroll;
     private Spinner themeSpinner;
     private Spinner colorUsageSpinner;
@@ -110,11 +111,6 @@ public final class MainActivity extends Activity {
     private String playersLoadedServer = "";
     private String draftServer;
     private String draftPlayerId;
-    private Boolean draftKeepAwake;
-    private Boolean draftShowProgress;
-    private Boolean draftShowTechInfo;
-    private Boolean draftShowQueuePosition;
-    private Boolean draftShowClock;
     private int draftScrollY;
     private int focusAfterAppearanceChange = -1;
 
@@ -315,8 +311,9 @@ public final class MainActivity extends Activity {
         awakeCheckbox.setButtonTintList(ColorStateList.valueOf(ACCENT));
         awakeCheckbox.setBackground(focusBackground());
         awakeCheckbox.setPadding(dp(10), dp(8), dp(10), dp(8));
-        awakeCheckbox.setChecked(draftKeepAwake != null
-                ? draftKeepAwake : prefs.getBoolean(KEY_KEEP_AWAKE, true));
+        awakeCheckbox.setChecked(prefs.getBoolean(KEY_KEEP_AWAKE, true));
+        awakeCheckbox.setOnCheckedChangeListener((button, checked) ->
+                prefs.edit().putBoolean(KEY_KEEP_AWAKE, checked).apply());
         awakeCheckbox.setEnabled(supportsAwake);
         add(content, awakeCheckbox, 5, 4);
         add(content, label(supportsAwake
@@ -326,42 +323,35 @@ public final class MainActivity extends Activity {
 
         content.addView(label("NOW PLAYING CONTENT", 15, ACCENT, true));
         progressCheckbox = displayCheckbox("Show playback progress",
-                draftShowProgress != null ? draftShowProgress
-                        : prefs.getBoolean(KEY_SHOW_PROGRESS, true));
+                prefs.getBoolean(KEY_SHOW_PROGRESS, true), KEY_SHOW_PROGRESS);
         add(content, progressCheckbox, 6, 2);
         technicalCheckbox = displayCheckbox("Show technical track information",
-                draftShowTechInfo != null ? draftShowTechInfo
-                        : prefs.getBoolean(KEY_SHOW_TECH_INFO, false));
+                prefs.getBoolean(KEY_SHOW_TECH_INFO, false), KEY_SHOW_TECH_INFO);
         add(content, technicalCheckbox, 0, 2);
         queuePositionCheckbox = displayCheckbox("Show playlist position",
-                draftShowQueuePosition != null ? draftShowQueuePosition
-                        : prefs.getBoolean(KEY_SHOW_QUEUE_POSITION, true));
+                prefs.getBoolean(KEY_SHOW_QUEUE_POSITION, true), KEY_SHOW_QUEUE_POSITION);
         add(content, queuePositionCheckbox, 0, 2);
         clockCheckbox = displayCheckbox("Show date and time",
-                draftShowClock != null ? draftShowClock
-                        : prefs.getBoolean(KEY_SHOW_CLOCK, false));
+                prefs.getBoolean(KEY_SHOW_CLOCK, false), KEY_SHOW_CLOCK);
         add(content, clockCheckbox, 0, 12);
         add(content, label("Playlist position shows the current track's place in the playback queue (for example, 7 / 42).",
                 14, SUBTEXT, false), 0, 18);
 
-        startButton = button("Save and show Now Playing");
-        startButton.setEnabled(false);
-        startButton.setOnClickListener(v -> saveSettings());
-        add(content, startButton, 0, 6);
-
-        if (configured()) {
-            Button cancel = button("Cancel and return to Now Playing");
-            cancel.setOnClickListener(v -> showDisplay());
-            add(content, cancel, 0, 6);
-        }
+        add(content, label("Changes are saved automatically. Press Back to return to Now Playing.",
+                14, SUBTEXT, false), 0, 16);
+        returnButton = button(configured() ? "Back to Now Playing" : "Start Now Playing");
+        returnButton.setEnabled(configured());
+        returnButton.setOnClickListener(v -> returnToNowPlaying());
+        add(content, returnButton, 0, 6);
         serverInput.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
                 requestSerial++;
+                draftPlayerId = null; // A new server requires a matching player selection.
                 playerOptions.clear();
+                playersLoadedServer = "";
                 showPlayerEntries();
                 playerStatus.setText("Refresh players for this server.");
-                playersLoadedServer = "";
                 themeCatalogServer = "";
             }
             @Override public void afterTextChanged(Editable s) { }
@@ -490,12 +480,6 @@ public final class MainActivity extends Activity {
             int pos = playerSpinner.getSelectedItemPosition();
             if (pos > 0 && pos <= playerOptions.size()) draftPlayerId = playerOptions.get(pos - 1).id;
         }
-        if (awakeCheckbox != null) draftKeepAwake = awakeCheckbox.isChecked();
-        if (progressCheckbox != null) draftShowProgress = progressCheckbox.isChecked();
-        if (technicalCheckbox != null) draftShowTechInfo = technicalCheckbox.isChecked();
-        if (queuePositionCheckbox != null)
-            draftShowQueuePosition = queuePositionCheckbox.isChecked();
-        if (clockCheckbox != null) draftShowClock = clockCheckbox.isChecked();
         draftScrollY = settingsScroll == null ? 0 : settingsScroll.getScrollY();
         focusAfterAppearanceChange = focus;
         handler.post(() -> {
@@ -550,9 +534,14 @@ public final class MainActivity extends Activity {
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         playerSpinner.setAdapter(adapter);
         playerSpinner.setEnabled(!playerOptions.isEmpty());
-        if (startButton != null) startButton.setEnabled(false);
-        String wanted = draftPlayerId != null ? draftPlayerId : prefs.getString(KEY_PLAYER, "");
-        for (int i=0; i<playerOptions.size(); i++) {
+
+        String server = ServerAddress.normalize(serverInput.getText().toString());
+        // Never silently reselect a player from the previous server when the
+        // user is editing the server address. Preserve only matching drafts.
+        String wanted = draftPlayerId != null ? draftPlayerId
+                : server != null && server.equals(prefs.getString(KEY_SERVER, ""))
+                    ? prefs.getString(KEY_PLAYER, "") : "";
+        for (int i = 0; i < playerOptions.size(); i++) {
             if (playerOptions.get(i).id.equals(wanted)) {
                 playerSpinner.setSelection(i + 1);
                 break;
@@ -560,12 +549,33 @@ public final class MainActivity extends Activity {
         }
         playerSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
-                if (startButton != null) startButton.setEnabled(pos > 0 && pos <= playerOptions.size());
+                persistValidPlayerSelection(pos);
             }
             @Override public void onNothingSelected(AdapterView<?> parent) {
-                if (startButton != null) startButton.setEnabled(false);
+                updateReturnButton();
             }
         });
+        updateReturnButton();
+    }
+
+    /** Commit the connection atomically, only after a matching player was found. */
+    private void persistValidPlayerSelection(int pos) {
+        String server = ServerAddress.normalize(serverInput.getText().toString());
+        String playerId = SettingsConnection.validPlayerId(
+                serverInput.getText().toString(), playersLoadedServer, playerOptions, pos);
+        if (playerId != null) {
+            if (!server.equals(prefs.getString(KEY_SERVER, ""))
+                    || !playerId.equals(prefs.getString(KEY_PLAYER, ""))) {
+                prefs.edit().putString(KEY_SERVER, server)
+                        .putString(KEY_PLAYER, playerId).apply();
+            }
+            draftPlayerId = playerId;
+        }
+        updateReturnButton();
+    }
+
+    private void updateReturnButton() {
+        if (returnButton != null) returnButton.setEnabled(configured());
     }
 
     private static String availablePlayersLabel(int count) {
@@ -579,6 +589,7 @@ public final class MainActivity extends Activity {
             return;
         }
         int serial = ++requestSerial;
+        playersLoadedServer = "";
         playerOptions.clear();
         showPlayerEntries();
         playerStatus.setText("Loading players…");
@@ -598,40 +609,20 @@ public final class MainActivity extends Activity {
                 return;
             }
             playerStatus.setText(availablePlayersLabel(players.size()));
-            String saved = draftPlayerId != null ? draftPlayerId : prefs.getString(KEY_PLAYER, "");
-            for (int i = 0; i < players.size(); i++) {
-                if (saved.equals(players.get(i).id)) {
-                    playerSpinner.setSelection(i + 1);
-                    break;
-                }
-            }
         });
     }
 
-    private void saveSettings() {
-        String server = ServerAddress.normalize(serverInput.getText().toString());
-        int pos = playerSpinner.getSelectedItemPosition();
-        if (server == null || pos <= 0 || pos > playerOptions.size()) {
-            new AlertDialog.Builder(this)
-                    .setMessage("Select a valid server and one of its available players.")
-                    .setPositiveButton("OK", null).show();
+    /** Return with persisted options, preserving the last valid connection. */
+    private void returnToNowPlaying() {
+        if (!configured()) {
+            Toast.makeText(this, "Select a server and player first.", Toast.LENGTH_SHORT).show();
             return;
         }
-        prefs.edit().putString(KEY_SERVER, server)
-                .putString(KEY_PLAYER, playerOptions.get(pos - 1).id)
-                .putBoolean(KEY_KEEP_AWAKE, supportsAwake && awakeCheckbox.isChecked())
-                .putBoolean(KEY_SHOW_PROGRESS, progressCheckbox.isChecked())
-                .putBoolean(KEY_SHOW_TECH_INFO, technicalCheckbox.isChecked())
-                .putBoolean(KEY_SHOW_QUEUE_POSITION, queuePositionCheckbox.isChecked())
-                .putBoolean(KEY_SHOW_CLOCK, clockCheckbox.isChecked())
-                .apply();
-        draftServer = null;
-        draftPlayerId = null;
-        draftKeepAwake = null;
-        draftShowProgress = null;
-        draftShowTechInfo = null;
-        draftShowQueuePosition = null;
-        draftShowClock = null;
+        String entered = ServerAddress.normalize(serverInput.getText().toString());
+        if (!prefs.getString(KEY_SERVER, "").equals(entered)) {
+            Toast.makeText(this, "Server change not applied; using the last working connection.",
+                    Toast.LENGTH_LONG).show();
+        }
         showDisplay();
     }
 
@@ -639,11 +630,6 @@ public final class MainActivity extends Activity {
         if (!configured()) { showSettings("Configure a server and player first."); return; }
         draftServer = null;
         draftPlayerId = null;
-        draftKeepAwake = null;
-        draftShowProgress = null;
-        draftShowTechInfo = null;
-        draftShowQueuePosition = null;
-        draftShowClock = null;
         requestSerial++;
         displayVisible = true;
         handler.removeCallbacks(hideGear);
@@ -947,7 +933,7 @@ public final class MainActivity extends Activity {
 
     @Override public void onBackPressed() {
         if (displayVisible) finish();
-        else if (configured()) showDisplay();
+        else if (configured()) returnToNowPlaying();
         else finish();
     }
 
@@ -1136,7 +1122,7 @@ public final class MainActivity extends Activity {
         return label;
     }
 
-    private CheckBox displayCheckbox(String text, boolean checked) {
+    private CheckBox displayCheckbox(String text, boolean checked, String preferenceKey) {
         CheckBox checkbox = new CheckBox(this);
         checkbox.setText(text);
         checkbox.setTextColor(TEXT);
@@ -1145,6 +1131,8 @@ public final class MainActivity extends Activity {
         checkbox.setBackground(focusBackground());
         checkbox.setPadding(dp(10), dp(8), dp(10), dp(8));
         checkbox.setChecked(checked);
+        checkbox.setOnCheckedChangeListener((button, value) ->
+                prefs.edit().putBoolean(preferenceKey, value).apply());
         return checkbox;
     }
 
