@@ -15,7 +15,8 @@ The new public name does **not** mean a new Android app/package. The old app mus
 ## Still required before publication
 
 - [x] Preserve the existing 640 × 360 TV banner design and replace its visible **Lyrion Now Playing** headline with **Lyrion Display** in `artwork/lyrion-display-banner-source.webp`; regenerate `app/src/main/res/drawable-nodpi/tv_banner.webp`. TV launchers may show this even though the tested Fire TV launcher shows the square icon.
-- [ ] Test `0.2.0` on the Fire TV: launch, server/player discovery, native settings, remote focus, gear, Material themes, display and keep-awake.
+- [x] Confirm the release-signed `v0.2.0` release candidate installs and works on the Fire TV (user-confirmed functional smoke test, 20 Nov 2026; source commit `221b445`).
+- [ ] Complete and document detailed Fire TV regression checks: server/player discovery, native settings, remote focus, gear, Material themes, display and keep-awake.
 - [ ] Specifically verify the **Fire TV Launcher icon** after first installation, app update, reboot and extended use; compare it with the icon under Fire TV's installed-app settings. PNG is an experiment, not a confirmed workaround for Amazon's launcher cache.
 - [ ] Verify a **signed release** updates the existing **signed release** in place with settings intact. A debug APK cannot normally update an installation signed with the release key.
 - [x] Add the approved **Lyrion Display** settings image (with anonymized server URL and **Living Room** player) as `screenshots/settings.webp`, and restore the two-column README screenshot preview.
