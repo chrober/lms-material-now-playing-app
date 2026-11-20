@@ -7,6 +7,8 @@ It does not claim that PNG alone fixes Amazon Fire TV launcher caching bugs.
 """
 from pathlib import Path
 from struct import unpack
+from sys import argv
+from zipfile import ZipFile
 
 ROOT = Path(__file__).resolve().parents[1]
 RES = ROOT / "app" / "src" / "main" / "res"
@@ -30,3 +32,24 @@ for density, expected_size in SIZES.items():
     print(f"OK {png.relative_to(ROOT)}: {width} x {height}")
 
 print("All five PNG launcher icons are valid.")
+
+if len(argv) > 1:
+    assert len(argv) == 2, "Usage: verify_launcher_assets.py [APK_FILE]"
+    apk = Path(argv[1])
+    assert apk.is_file(), f"APK missing: {apk}"
+    with ZipFile(apk) as package:
+        names = package.namelist()
+        for density in SIZES:
+            prefix = f"res/mipmap-{density}"
+            expected = [
+                n for n in names if n.startswith(prefix)
+                and n.endswith("/ic_launcher.png")
+            ]
+            assert expected, f"APK missing PNG launcher icon: {density}"
+            invalid = [
+                n for n in names if n.startswith(prefix)
+                and n.endswith("/ic_launcher.webp")
+            ]
+            assert not invalid, f"APK has obsolete WebP launcher icon: {invalid}"
+            print(f"APK OK: {expected[0]}")
+    print(f"APK launcher icons verified: {apk}")
