@@ -47,6 +47,21 @@ jobs:
         run: gradle --no-daemon :app:assembleDebug
       - name: Verify PNG resources inside built APK
         run: python3 tools/verify_launcher_assets.py app/build/outputs/apk/debug/app-debug.apk
+      - name: Build unsigned release APK (F-Droid source-build preflight)
+        shell: bash
+        run: |
+          test -z "${ANDROID_KEYSTORE_PATH:-}"
+          gradle --no-daemon :app:assembleRelease
+          apk=app/build/outputs/apk/release/app-release-unsigned.apk
+          test -s "$apk"
+          python3 tools/verify_launcher_assets.py "$apk"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk" > "$RUNNER_TEMP/unsigned-badging.txt"
+          grep -q "name='com.chrober.lmsmaterial.nowplaying' versionCode='8' versionName='0.2.0'" "$RUNNER_TEMP/unsigned-badging.txt"
+          if "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$apk"; then
+            echo "::error::F-Droid preflight must create an unsigned release, not a signed APK"
+            exit 1
+          fi
+          echo "Unsigned release APK generated and validated."
       - name: Name debug APK
         run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/lyrion-display-debug.apk
       - name: Publish lint reports
