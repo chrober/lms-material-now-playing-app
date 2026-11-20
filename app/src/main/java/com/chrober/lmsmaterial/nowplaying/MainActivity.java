@@ -226,7 +226,7 @@ public final class MainActivity extends Activity {
         setContentView(scroll);
 
         content.addView(label(getString(R.string.app_name), 28, TEXT, true));
-        add(content, label("A dedicated, read-only display for Lyrion Music Server.",
+        add(content, label("A dedicated Now Playing display for Lyrion Music Server.",
                 16, SUBTEXT, false), 6, 20);
         if (error != null)
             add(content, label(error, 16, Color.rgb(255, 170, 148), false), 0, 14);
@@ -331,7 +331,7 @@ public final class MainActivity extends Activity {
         add(content, startButton, 0, 6);
 
         if (configured()) {
-            Button cancel = button("Cancel and return to display");
+            Button cancel = button("Cancel and return to Now Playing");
             cancel.setOnClickListener(v -> showDisplay());
             add(content, cancel, 0, 6);
         }
