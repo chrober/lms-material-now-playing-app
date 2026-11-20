@@ -90,6 +90,11 @@ public final class MainActivity extends Activity {
     private int requestSerial;
     private String activeUrl;
     private WebView browser;
+    private FrameLayout displayRoot;
+    private TextView displayLoading;
+    private String browserServer;
+    private String appliedOptionsScript;
+    private boolean browserReady;
     private ImageButton gearButton;
     private EditText serverInput;
     private Spinner playerSpinner;
@@ -201,7 +206,10 @@ public final class MainActivity extends Activity {
         resolveThemePalette();
         requestSerial++;
         handler.removeCallbacks(hideGear);
-        gearButton = null;
+        if (gearButton != null) {
+            gearButton.animate().cancel();
+            gearButton.setVisibility(View.GONE);
+        }
         displayVisible = false;
         updateWakeFlag();
         setFullscreen(false);
@@ -216,7 +224,10 @@ public final class MainActivity extends Activity {
                 flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
         }
         getWindow().getDecorView().setSystemUiVisibility(flags);
-        destroyBrowser();
+        // Keep a verified Material Skin WebView alive off-screen. Returning
+        // from Settings should not repeat the network probe and initialization.
+        // Unverified or broken pages are never reused.
+        if (!browserReady) destroyBrowser();
 
         ScrollView scroll = new ScrollView(this);
         scroll.setBackgroundColor(BG);
@@ -334,9 +345,6 @@ public final class MainActivity extends Activity {
         clockCheckbox = displayCheckbox("Show date and time",
                 prefs.getBoolean(KEY_SHOW_CLOCK, false), KEY_SHOW_CLOCK);
         add(content, clockCheckbox, 0, 12);
-        add(content, label("Playlist position shows the current track's place in the playback queue (for example, 7 / 42).",
-                14, SUBTEXT, false), 0, 18);
-
         add(content, label(configured()
                 ? "Changes are saved automatically. Press Back to return to Now Playing."
                 : "Options save automatically. Select a server and player, then start Now Playing.",
@@ -637,24 +645,63 @@ public final class MainActivity extends Activity {
         handler.removeCallbacks(hideGear);
         setFullscreen(true);
         updateWakeFlag();
-        destroyBrowser();
 
         String server = ServerAddress.normalize(prefs.getString(KEY_SERVER, ""));
         String player = prefs.getString(KEY_PLAYER, "");
         String theme = prefs.getString(KEY_THEME, MaterialTheme.DEFAULT_THEME);
         String color = prefs.getString(KEY_COLOR, MaterialTheme.DEFAULT_COLOR);
         if (!MaterialTheme.safeKey(color)) color = MaterialTheme.DEFAULT_COLOR;
-        activeUrl = server + "/material/np-only?player=" + Uri.encode(player)
+        String nextUrl = server + "/material/np-only?player=" + Uri.encode(player)
                 + "&theme=" + MaterialTheme.urlTheme(theme) + "," + color;
+        String nextOptions = displayOptionsScript();
 
-        // Probe the actual Material Skin route before displaying its content.
-        // Some Lyrion servers return an HTML error document for missing plugins.
+        NowPlayingReturnPolicy.Action action = NowPlayingReturnPolicy.decide(
+                browserReady && browser != null && displayRoot != null && displayLoading != null,
+                browserServer, server, activeUrl, nextUrl, appliedOptionsScript, nextOptions);
+        if (action != NowPlayingReturnPolicy.Action.RECONNECT) {
+            // The same trusted server and already-initialized WebView are still
+            // available. Reattach its original view hierarchy without probing.
+            displayRoot.setBackgroundColor(BG);
+            displayLoading.setBackgroundColor(BG);
+            browser.setBackgroundColor(BG);
+            if (gearButton != null) {
+                gearButton.animate().cancel();
+                gearButton.setVisibility(View.GONE);
+            }
+            setContentView(displayRoot);
+            if (action == NowPlayingReturnPolicy.Action.REUSE) {
+                displayLoading.setVisibility(View.GONE);
+            } else if (action == NowPlayingReturnPolicy.Action.APPLY_OPTIONS) {
+                // CSS-only changes take effect in place. Material's own
+                // origin-local preference changes can request one reload.
+                displayLoading.setText("Applying display settings…");
+                displayLoading.setVisibility(View.VISIBLE);
+                browserReady = false;
+                verifyMaterialDisplay(browser, displayLoading, 4);
+            } else {
+                // Theme or selected player changed: navigate within the SAME
+                // trusted origin, keeping the existing WebView and its security
+                // client, but let Material Skin initialize the new page.
+                activeUrl = nextUrl;
+                browserReady = false;
+                displayLoading.setText("Connecting to Lyrion…");
+                displayLoading.setVisibility(View.VISIBLE);
+                browser.loadUrl(activeUrl);
+            }
+            return;
+        }
+
+        destroyBrowser();
+        activeUrl = nextUrl;
+        // Cold starts and server-origin changes still use the verified probe.
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(BG);
         TextView loading = label("Checking Material Skin…", 18, TEXT, false);
         loading.setGravity(Gravity.CENTER);
         loading.setBackgroundColor(BG);
         root.addView(loading, new FrameLayout.LayoutParams(-1, -1));
+        displayRoot = root;
+        displayLoading = loading;
         setContentView(root);
 
         final int serial = requestSerial;
@@ -672,6 +719,8 @@ public final class MainActivity extends Activity {
 
     private void loadNowPlaying(FrameLayout root, TextView loading) {
         final String trustedServer = ServerAddress.normalize(prefs.getString(KEY_SERVER, ""));
+        browserServer = trustedServer;
+        browserReady = false;
         browser = new WebView(this);
         browser.setBackgroundColor(BG);
         browser.setFocusable(false);
@@ -782,18 +831,24 @@ public final class MainActivity extends Activity {
      * The preflight proved the plugin endpoint exists. Give a cold WebView
      * several chances to initialize before reporting a display load failure.
      */
-    private void verifyMaterialDisplay(WebView view, TextView loading, int retriesRemaining) {
-        if (browser != view || !displayVisible) return;
-        String javascript = NowPlayingDisplayOptions.script(
+    private String displayOptionsScript() {
+        return NowPlayingDisplayOptions.script(
                 prefs.getInt(KEY_COLOR_USAGE, MaterialTheme.COLOR_COVER),
                 prefs.getBoolean(KEY_SHOW_PROGRESS, true),
                 prefs.getBoolean(KEY_SHOW_TECH_INFO, false),
                 prefs.getBoolean(KEY_SHOW_QUEUE_POSITION, true),
                 prefs.getBoolean(KEY_SHOW_CLOCK, false));
+    }
+
+    private void verifyMaterialDisplay(WebView view, TextView loading, int retriesRemaining) {
+        if (browser != view || !displayVisible) return;
+        String javascript = displayOptionsScript();
         view.evaluateJavascript(javascript, result -> {
             if (browser != view || !displayVisible) return;
             if ("\"reload\"".equals(result)) return;
             if ("\"ready\"".equals(result)) {
+                browserReady = true;
+                appliedOptionsScript = javascript;
                 loading.setVisibility(View.GONE);
                 sampleWebPalette(view, null);
             } else if (retriesRemaining > 0) {
@@ -940,13 +995,20 @@ public final class MainActivity extends Activity {
     }
 
     private void destroyBrowser() {
-        if (browser == null) return;
-        browser.stopLoading();
-        browser.setWebViewClient(null);
-        if (browser.getParent() instanceof ViewGroup)
-            ((ViewGroup) browser.getParent()).removeView(browser);
-        browser.destroy();
+        WebView old = browser;
         browser = null;
+        browserReady = false;
+        browserServer = null;
+        appliedOptionsScript = null;
+        displayRoot = null;
+        displayLoading = null;
+        gearButton = null;
+        if (old == null) return;
+        old.stopLoading();
+        old.setWebViewClient(null);
+        if (old.getParent() instanceof ViewGroup)
+            ((ViewGroup) old.getParent()).removeView(old);
+        old.destroy();
     }
 
     private Button button(String text) {
