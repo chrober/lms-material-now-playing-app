@@ -337,7 +337,9 @@ public final class MainActivity extends Activity {
         add(content, label("Playlist position shows the current track's place in the playback queue (for example, 7 / 42).",
                 14, SUBTEXT, false), 0, 18);
 
-        add(content, label("Changes are saved automatically. Press Back to return to Now Playing.",
+        add(content, label(configured()
+                ? "Changes are saved automatically. Press Back to return to Now Playing."
+                : "Options save automatically. Select a server and player, then start Now Playing.",
                 14, SUBTEXT, false), 0, 16);
         returnButton = button(configured() ? "Back to Now Playing" : "Start Now Playing");
         returnButton.setEnabled(configured());
