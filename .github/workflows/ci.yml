@@ -37,14 +37,18 @@ jobs:
         with:
           gradle-version: '9.9.1'
           cache-provider: basic
+      - name: Verify classic PNG icon assets
+        run: python3 tools/verify_launcher_assets.py
       - name: Android lint
         run: gradle --no-daemon :app:lintDebug
       - name: Unit tests
         run: gradle --no-daemon :app:testDebugUnitTest
       - name: Build installable debug APK
         run: gradle --no-daemon :app:assembleDebug
+      - name: Verify PNG resources inside built APK
+        run: python3 tools/verify_launcher_assets.py app/build/outputs/apk/debug/app-debug.apk
       - name: Name debug APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/lms-material-now-playing-debug.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/lyrion-display-debug.apk
       - name: Publish lint reports
         if: always()
         uses: actions/upload-artifact@v7
@@ -55,6 +59,6 @@ jobs:
       - name: Publish debug APK
         uses: actions/upload-artifact@v7
         with:
-          name: lms-material-now-playing-debug
-          path: app/build/outputs/apk/debug/lms-material-now-playing-debug.apk
+          name: lyrion-display-debug
+          path: app/build/outputs/apk/debug/lyrion-display-debug.apk
           if-no-files-found: error

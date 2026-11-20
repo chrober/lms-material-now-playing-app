@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Recreate Android launcher resources from approved WebP artwork.
+"""Recreate classic PNG launcher icons and WebP adaptive/TV resources.
 
 Requires Pillow; images already checked into app/src/main/res so running the
 script is optional for consumers who only need to compile the application.
@@ -18,8 +18,11 @@ for density, size in sizes.items():
     target = RES / ("mipmap-" + density)
     target.mkdir(parents=True, exist_ok=True)
     icon.resize((size, size), Image.Resampling.LANCZOS).save(
-        target / "ic_launcher.webp", format="WEBP", quality=90, method=6
+        target / "ic_launcher.png", format="PNG", optimize=True
     )
+    stale_webp = target / "ic_launcher.webp"
+    if stale_webp.exists():
+        stale_webp.unlink()
 
 adaptive = Image.new("RGBA", (432, 432), (0, 0, 0, 0))
 adaptive.alpha_composite(icon.resize((288, 288), Image.Resampling.LANCZOS), (72, 72))
@@ -27,7 +30,7 @@ target = RES / "drawable-nodpi"
 target.mkdir(parents=True, exist_ok=True)
 adaptive.save(target / "ic_launcher_foreground.webp", format="WEBP", quality=92, method=6)
 
-banner = Image.open(ART / "lyrion-now-playing-banner-source.webp").convert("RGB")
+banner = Image.open(ART / "lyrion-display-banner-source.webp").convert("RGB")
 assert banner.size == (640, 360), "The TV banner source must be 640x360"
 banner.save(target / "tv_banner.webp", format="WEBP", quality=90, method=6)
-print("Updated Android launcher images and TV banner")
+print("Updated PNG launcher icons and WebP adaptive/TV resources")

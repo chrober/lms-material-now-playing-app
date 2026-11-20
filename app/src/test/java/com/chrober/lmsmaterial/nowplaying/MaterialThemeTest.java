@@ -39,9 +39,10 @@ public class MaterialThemeTest {
         assertFalse(MaterialTheme.safeKey("x?q"));
     }
 
-    @Test public void coloredToolbarsUseMaterialSkinThemeSuffix() {
-        assertEquals("dark-lyrion-colored", MaterialTheme.urlTheme("dark-lyrion", true));
-        assertEquals("auto", MaterialTheme.urlTheme("auto", false));
+    @Test public void themeUrlUsesSelectedThemeWithoutToolbarColorSuffix() {
+        assertEquals("dark-lyrion", MaterialTheme.urlTheme("dark-lyrion"));
+        assertEquals("auto", MaterialTheme.urlTheme("auto"));
+        assertEquals("dark", MaterialTheme.urlTheme("../unsafe"));
     }
 
     @Test public void nativePaletteMatchesOriginalThemeColors() {
