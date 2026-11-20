@@ -749,10 +749,18 @@ public final class MainActivity extends Activity {
         if (browser != view || !displayVisible) return;
         String javascript = "(function(){try{" +
                 "if(!document.getElementById('app')) return 'missing';" +
-                "var key='lms-material::colorUsage';" +
+                "var colorKey='lms-material::colorUsage';" +
                 "var expected='" + prefs.getInt(KEY_COLOR_USAGE, MaterialTheme.COLOR_COVER) + "';" +
-                "if(localStorage.getItem(key)!==expected){" +
-                "localStorage.setItem(key,expected);location.reload();return 'reload';}" +
+                "var changed=false;" +
+                "if(localStorage.getItem(colorKey)!==expected){" +
+                "localStorage.setItem(colorKey,expected);changed=true;}" +
+                // Material Skin's 'Display technical info' preference is
+                // per-browser. Disable it only in this app's isolated WebView;
+                // other Material Skin clients keep their own preferences.
+                "var techKey='lms-material::techInfo';" +
+                "if(localStorage.getItem(techKey)==='true'){" +
+                "localStorage.setItem(techKey,'false');changed=true;}" +
+                "if(changed){location.reload();return 'reload';}" +
                 "return 'ready';}catch(e){return 'missing';}})()";
         view.evaluateJavascript(javascript, result -> {
             if (browser != view || !displayVisible) return;
