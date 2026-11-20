@@ -103,6 +103,7 @@ jobs:
           name: fdroid-build-preflight-logs
           path: |
             fdroid/logs/
-            fdroid/tmp/\n            fdroid/build-preflight.log
+            fdroid/tmp/
+            fdroid/build-preflight.log
           retention-days: 7
           if-no-files-found: ignore
