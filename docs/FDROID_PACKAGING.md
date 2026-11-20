@@ -29,6 +29,29 @@ Before the first submission:
 - During QA, `fdroid build --test --force com.chrober.lmsmaterial.nowplaying`
   can exercise the disabled recipe; do **not** use `--force` for publication.
 
+## Verified local source-build preflight (20 Nov 2026)
+
+We ran the **actual fdroidserver 2.4.5** metadata reader, linter,
+source scanner and `fdroid build --test --force` on GitHub-hosted Ubuntu.
+The disabled recipe at source commit `35b1749c9d4036ec765aaee51b7dfa2de43ed8a1`
+succeeded: `1 build succeeded`, producing
+`tmp/com.chrober.lmsmaterial.nowplaying_8.apk` (unsigned).
+[CI evidence](https://github.com/chrober/lyrion-display/actions/runs/44760666259).
+
+The pip-installed fdroidserver package does not contain its own
+`gradlew-fdroid`, so for this **local** preflight we explicitly configured
+Gradle 9.9.1 from GitHub Actions. The official F-Droid buildserver image
+has its own Gradle tooling and still needs independent testing.
+
+An archive entry comparison between the older signed PR #23 QA APK
+(source revision `12b5f81`) and this F-Droid-built APK showed that
+all common APK entries have matching uncompressed contents **except**
+`META-INF/version-control-info.textproto`, which contains the expected
+different Git revision. The signed APK also contains three v1-signature
+entries missing from the unsigned APK. **This does not prove reproducibility**:
+the two APKs have different source revisions, and a proper same-revision,
+signature-aware comparison is required.
+
 ## Reproducible upstream signing (preferred, not yet verified)
 
 To preserve in-place updates from the GitHub-signed APK, the official F-Droid metadata
