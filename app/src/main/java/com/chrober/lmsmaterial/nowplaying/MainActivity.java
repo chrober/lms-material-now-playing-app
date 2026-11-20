@@ -61,6 +61,7 @@ public final class MainActivity extends Activity {
     private static final String KEY_SHOW_PROGRESS = "show_progress";
     private static final String KEY_SHOW_TECH_INFO = "show_technical_info";
     private static final String KEY_SHOW_QUEUE_POSITION = "show_queue_position";
+    private static final String KEY_SHOW_CLOCK = "show_material_clock";
     private static final String KEY_THEME = "material_theme";
     private static final String KEY_COLOR = "material_color";
     private static final String KEY_COLOR_USAGE = "material_color_usage";
@@ -96,6 +97,7 @@ public final class MainActivity extends Activity {
     private CheckBox progressCheckbox;
     private CheckBox technicalCheckbox;
     private CheckBox queuePositionCheckbox;
+    private CheckBox clockCheckbox;
     private Button startButton;
     private ScrollView settingsScroll;
     private Spinner themeSpinner;
@@ -112,6 +114,7 @@ public final class MainActivity extends Activity {
     private Boolean draftShowProgress;
     private Boolean draftShowTechInfo;
     private Boolean draftShowQueuePosition;
+    private Boolean draftShowClock;
     private int draftScrollY;
     private int focusAfterAppearanceChange = -1;
 
@@ -333,7 +336,11 @@ public final class MainActivity extends Activity {
         queuePositionCheckbox = displayCheckbox("Show playlist position",
                 draftShowQueuePosition != null ? draftShowQueuePosition
                         : prefs.getBoolean(KEY_SHOW_QUEUE_POSITION, true));
-        add(content, queuePositionCheckbox, 0, 12);
+        add(content, queuePositionCheckbox, 0, 2);
+        clockCheckbox = displayCheckbox("Show date and time",
+                draftShowClock != null ? draftShowClock
+                        : prefs.getBoolean(KEY_SHOW_CLOCK, false));
+        add(content, clockCheckbox, 0, 12);
         add(content, label("Playlist position shows the current track's place in the playback queue (for example, 7 / 42).",
                 14, SUBTEXT, false), 0, 18);
 
@@ -488,6 +495,7 @@ public final class MainActivity extends Activity {
         if (technicalCheckbox != null) draftShowTechInfo = technicalCheckbox.isChecked();
         if (queuePositionCheckbox != null)
             draftShowQueuePosition = queuePositionCheckbox.isChecked();
+        if (clockCheckbox != null) draftShowClock = clockCheckbox.isChecked();
         draftScrollY = settingsScroll == null ? 0 : settingsScroll.getScrollY();
         focusAfterAppearanceChange = focus;
         handler.post(() -> {
@@ -615,6 +623,7 @@ public final class MainActivity extends Activity {
                 .putBoolean(KEY_SHOW_PROGRESS, progressCheckbox.isChecked())
                 .putBoolean(KEY_SHOW_TECH_INFO, technicalCheckbox.isChecked())
                 .putBoolean(KEY_SHOW_QUEUE_POSITION, queuePositionCheckbox.isChecked())
+                .putBoolean(KEY_SHOW_CLOCK, clockCheckbox.isChecked())
                 .apply();
         draftServer = null;
         draftPlayerId = null;
@@ -622,6 +631,7 @@ public final class MainActivity extends Activity {
         draftShowProgress = null;
         draftShowTechInfo = null;
         draftShowQueuePosition = null;
+        draftShowClock = null;
         showDisplay();
     }
 
@@ -633,6 +643,7 @@ public final class MainActivity extends Activity {
         draftShowProgress = null;
         draftShowTechInfo = null;
         draftShowQueuePosition = null;
+        draftShowClock = null;
         requestSerial++;
         displayVisible = true;
         handler.removeCallbacks(hideGear);
@@ -789,7 +800,8 @@ public final class MainActivity extends Activity {
                 prefs.getInt(KEY_COLOR_USAGE, MaterialTheme.COLOR_COVER),
                 prefs.getBoolean(KEY_SHOW_PROGRESS, true),
                 prefs.getBoolean(KEY_SHOW_TECH_INFO, false),
-                prefs.getBoolean(KEY_SHOW_QUEUE_POSITION, true));
+                prefs.getBoolean(KEY_SHOW_QUEUE_POSITION, true),
+                prefs.getBoolean(KEY_SHOW_CLOCK, false));
         view.evaluateJavascript(javascript, result -> {
             if (browser != view || !displayVisible) return;
             if ("\"reload\"".equals(result)) return;
