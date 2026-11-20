@@ -60,7 +60,6 @@ public final class MainActivity extends Activity {
     private static final String KEY_THEME = "material_theme";
     private static final String KEY_COLOR = "material_color";
     private static final String KEY_COLOR_USAGE = "material_color_usage";
-    private static final String KEY_COLORED_TOOLBARS = "material_colored_toolbars";
     private static final String KEY_SAMPLED_PROFILE = "material_sampled_profile";
     private static final String KEY_SAMPLED_BG = "material_sampled_background";
     private static final String KEY_SAMPLED_TEXT = "material_sampled_text";
@@ -95,7 +94,6 @@ public final class MainActivity extends Activity {
     private Spinner themeSpinner;
     private Spinner colorUsageSpinner;
     private Spinner colorSpinner;
-    private CheckBox coloredToolbarsCheckbox;
     private final List<MaterialTheme.Option> themeOptions = MaterialTheme.builtInThemes();
     private final List<MaterialTheme.ColorOption> colorOptions = MaterialTheme.builtInColors();
     private String themeCatalogServer = "";
@@ -292,22 +290,6 @@ public final class MainActivity extends Activity {
                     + (prefs.getInt(KEY_COLOR_USAGE, MaterialTheme.COLOR_COVER) == MaterialTheme.COLOR_PLAYER
                         ? "player." : "album cover."), 14, SUBTEXT, false), 0, 8);
         }
-        coloredToolbarsCheckbox = new CheckBox(this);
-        coloredToolbarsCheckbox.setText("Color toolbars");
-        coloredToolbarsCheckbox.setTextColor(TEXT);
-        coloredToolbarsCheckbox.setTextSize(17);
-        coloredToolbarsCheckbox.setButtonTintList(ColorStateList.valueOf(ACCENT));
-        coloredToolbarsCheckbox.setPadding(dp(10), dp(8), dp(10), dp(8));
-        coloredToolbarsCheckbox.setBackground(focusBackground());
-        coloredToolbarsCheckbox.setChecked(prefs.getBoolean(KEY_COLORED_TOOLBARS, false));
-        coloredToolbarsCheckbox.setOnCheckedChangeListener((control, checked) -> {
-            if (checked != prefs.getBoolean(KEY_COLORED_TOOLBARS, false)) {
-                prefs.edit().putBoolean(KEY_COLORED_TOOLBARS, checked).apply();
-                appearanceChanged(3);
-            }
-        });
-        add(content, coloredToolbarsCheckbox, 0, 16);
-
         content.addView(label("DISPLAY", 15, ACCENT, true));
         awakeCheckbox = new CheckBox(this);
         awakeCheckbox.setText("Keep screen awake");
@@ -366,7 +348,7 @@ public final class MainActivity extends Activity {
                 scroll.scrollTo(0, scrollY);
                 View focus = target == 1 ? colorUsageSpinner
                         : target == 2 ? colorSpinner
-                        : target == 3 ? coloredToolbarsCheckbox : themeSpinner;
+                        : themeSpinner;
                 if (focus != null) focus.requestFocus();
                 else if (themeSpinner != null) themeSpinner.requestFocus();
             });
@@ -495,11 +477,11 @@ public final class MainActivity extends Activity {
             if (!prefs.contains(KEY_THEME) && result.defaults != null) {
                 String theme = result.defaults.optString("theme", MaterialTheme.DEFAULT_THEME);
                 String color = result.defaults.optString("color", MaterialTheme.DEFAULT_COLOR);
-                boolean colored = theme.endsWith("-colored");
-                if (colored) theme = theme.substring(0, theme.length() - "-colored".length());
+                if (theme.endsWith("-colored"))
+                    theme = theme.substring(0, theme.length() - "-colored".length());
                 if (MaterialTheme.safeKey(theme) && MaterialTheme.safeKey(color)) {
                     prefs.edit().putString(KEY_THEME, theme).putString(KEY_COLOR, color)
-                            .putBoolean(KEY_COLORED_TOOLBARS, colored).apply();
+                            .apply();
                     appearanceChanged(0);
                     return;
                 }
@@ -613,8 +595,7 @@ public final class MainActivity extends Activity {
         String color = prefs.getString(KEY_COLOR, MaterialTheme.DEFAULT_COLOR);
         if (!MaterialTheme.safeKey(color)) color = MaterialTheme.DEFAULT_COLOR;
         activeUrl = server + "/material/np-only?player=" + Uri.encode(player)
-                + "&theme=" + MaterialTheme.urlTheme(theme,
-                    prefs.getBoolean(KEY_COLORED_TOOLBARS, false)) + "," + color;
+                + "&theme=" + MaterialTheme.urlTheme(theme) + "," + color;
 
         // Probe the actual Material Skin route before displaying its content.
         // Some Lyrion servers return an HTML error document for missing plugins.
