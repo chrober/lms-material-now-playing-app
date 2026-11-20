@@ -7,7 +7,9 @@ This document contains implementation and platform details kept out of the [READ
 - The application is a small native Android `Activity` with a fullscreen `WebView`; its settings, keyboard/remote handling, and gear button are native Android UI.
 - The app first probes **Material Skin's existing** `/material/np-only` endpoint with a background GET and verifies its recognizable Now Playing redirect. The probe retries transient startup timeouts, missing-route responses, and unexpected pages before reporting an error. Only after success does it load the display in its WebView. Material Skin performs the rendering; no local HTML recreation or extra server plugin is involved.
 - The WebView is deliberately **view-only**: touch and media-control interactions with the page are blocked. The settings overlay remains interactive. This is a UI behavior, **not** an authorization or network-security barrier.
-- The selected server, player **ID**, keep-awake choice, and appearance settings are saved locally via Android `SharedPreferences`. A player rename therefore does not normally require reconfiguration.
+- The selected server, player **ID**, keep-awake choice, Now Playing visibility options and appearance settings are saved locally via Android `SharedPreferences`. A player rename therefore does not normally require reconfiguration.
+- **Save on change, apply on return:** theme/color and checkbox changes persist immediately, so Android Home or lifecycle interruptions do not discard them. Settings has no Save/Cancel workflow. Remote Back or the single native **Back to Now Playing** action reopens the Material Skin WebView with the persisted options. First-time setup instead offers **Start Now Playing**.
+- The server address is a draft while being edited; it is never persisted per keystroke. Selecting a player returned by that specific normalized server commits the **server and player together in one edit**. Incomplete, invalid and stale-network selections cannot replace the last working pair. Returning from Settings with an unfinished server change uses the last working connection and explains this via a short toast. On first launch, Start is disabled until a valid pair has been committed.
 - Debug builds can also be opened with an optional ADB `url` intent extra for development. Production-signed APKs ignore this extra: otherwise any third-party Android app could overwrite the saved server and player through the exported activity.
 
 ### Server discovery and player selection
@@ -44,7 +46,9 @@ Material Skin continues to serve **its own original CSS**. The surrounding nativ
 | Remote OK / Enter | Reveal the gear; select it to open settings |
 | Touch | Reveal the gear, then tap it |
 | Mouse/trackpad | Reveal the gear on pointer movement; click to open |
-| Back | Exit the app |
+| Back from Now Playing | Exit the app |
+
+In native Settings, **Back** returns to Now Playing with the persisted settings if a connection is configured; otherwise it exits first-time setup. Android system UI (including the on-screen keyboard) retains normal Back handling.
 
 The native gear overlay fades in over **230 ms**, is normally shown for **5 seconds**, and fades out over **700 ms**. The overlay is not part of Material Skin's web content.
 
