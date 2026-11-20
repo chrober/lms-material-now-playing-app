@@ -1,0 +1,86 @@
+name: Polish Lyrion Display TV banner (one-time)
+
+on:
+  push:
+    branches: [rename/lyrion-display-v0.2.0]
+    paths: [.github/workflows/polish-banner-once.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  polish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install Pillow and NumPy
+        run: python -m pip install Pillow==11.3.0 numpy==2.2.6
+      - name: Replace headline cleanly against original background
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from io import BytesIO
+          import subprocess
+          import numpy as np
+          from PIL import Image, ImageDraw, ImageFont
+          
+          # Start from the untouched original artwork on main, avoiding
+          # ghosting around antialiased lettering in the previous attempt.
+          original_bytes = subprocess.check_output([
+              'git', 'show', 'origin/main:artwork/lyrion-now-playing-banner-source.webp'
+          ])
+          original = Image.open(BytesIO(original_bytes)).convert('RGB')
+          assert original.size == (640, 360)
+          data = np.asarray(original).astype(np.float32)
+          out = data.copy()
+          
+          # Preserve original near-black navy/magenta vertical gradients.
+          # Sample pristine scanlines above and below the legacy heading;
+          # feather only the section occupied by the old title and shadow.
+          x1, x2 = 215, 549
+          y1, y2 = 110, 163
+          top_sample = data[109, x1:x2]
+          bottom_sample = data[163, x1:x2]
+          for y in range(y1, y2):
+              t = (y - 109) / (163 - 109)
+              line = (1-t) * top_sample + t * bottom_sample
+              edge_y = min(1, (y - y1) / 10, (y2 - 1 - y) / 10)
+              for x in range(x1, x2):
+                  edge_x = min(1, (x - x1) / 10, (x2 - 1 - x) / 12)
+                  alpha = max(0, min(edge_x, edge_y))
+                  out[y, x] = data[y, x] * (1-alpha) + line[x-x1] * alpha
+          
+          banner = Image.fromarray(np.uint8(np.clip(out, 0, 255)), 'RGB')
+          draw = ImageDraw.Draw(banner)
+          font = ImageFont.truetype(
+              '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 29
+          )
+          draw.text((227, 119), 'Lyrion Display', font=font, fill=(252, 251, 255))
+          
+          source = Path('artwork/lyrion-display-banner-source.webp')
+          packaged = Path('app/src/main/res/drawable-nodpi/tv_banner.webp')
+          banner.save(source, 'WEBP', quality=96, method=6)
+          banner.save(packaged, 'WEBP', quality=90, method=6)
+          for f in [source, packaged]:
+              with Image.open(f) as check:
+                  assert check.size == (640, 360)
+          print('Banner cleaned and regenerated:', source, packaged)
+          PY
+      - name: Commit corrected artwork
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add artwork/lyrion-display-banner-source.webp app/src/main/res/drawable-nodpi/tv_banner.webp
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "assets: eliminate original title shadow from Lyrion Display banner"
+          git push origin HEAD:rename/lyrion-display-v0.2.0
