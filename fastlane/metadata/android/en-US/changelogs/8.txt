@@ -1,0 +1,1 @@
+Renamed the app to Lyrion Display. Updated branding, TV banner, icons and settings; improved setup feedback and resource compatibility. The Android application ID is unchanged to support upgrades from previous release-signed versions.

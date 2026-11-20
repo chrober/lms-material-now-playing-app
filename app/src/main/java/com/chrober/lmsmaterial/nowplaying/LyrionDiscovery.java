@@ -85,26 +85,9 @@ final class LyrionDiscovery {
                         DatagramPacket reply = new DatagramPacket(bytes, bytes.length);
                         try { socket.receive(reply); }
                         catch (java.net.SocketTimeoutException ignored) { continue; }
-                        if (reply.getLength() < 2 || bytes[0] != (byte) 'E') continue;
-                        String name = "";
-                        int port = 9000;
-                        int pos = 1;
-                        while (pos + 5 <= reply.getLength()) {
-                            String key = new String(bytes, pos, 4, StandardCharsets.US_ASCII);
-                            pos += 4;
-                            int length = bytes[pos++] & 0xff;
-                            if (pos + length > reply.getLength()) break;
-                            String value = new String(bytes, pos, length, StandardCharsets.UTF_8);
-                            if ("NAME".equals(key)) name = value;
-                            if ("JSON".equals(key)) {
-                                try { port = Integer.parseInt(value); }
-                                catch (NumberFormatException ignored) { }
-                            }
-                            pos += length;
-                        }
-                        if (port < 1 || port > 65535) port = 9000;
-                        String ip = reply.getAddress().getHostAddress();
-                        found.put(ip + ":" + port, new Server(name, ip, port));
+                        Server server = parseReply(bytes, reply.getLength(), reply.getAddress());
+                        if (server != null)
+                            found.put(server.ip + ":" + server.port, server);
                     }
                 }
             } catch (Exception ignored) {
@@ -115,6 +98,30 @@ final class LyrionDiscovery {
             List<Server> result = new ArrayList<>(found.values());
             new Handler(Looper.getMainLooper()).post(() -> callback.completed(result));
         }, "lyrion-server-discovery").start();
+    }
+
+    /** Parse a single eIPAD response; never trust its declared TLV lengths. */
+    static Server parseReply(byte[] bytes, int length, InetAddress sender) {
+        if (bytes == null || sender == null || length < 2 || length > bytes.length
+                || bytes[0] != (byte) 'E') return null;
+        String name = "";
+        int port = 9000;
+        int pos = 1;
+        while (pos + 5 <= length) {
+            String key = new String(bytes, pos, 4, StandardCharsets.US_ASCII);
+            pos += 4;
+            int size = bytes[pos++] & 0xff;
+            if (pos + size > length) break;
+            String value = new String(bytes, pos, size, StandardCharsets.UTF_8);
+            if ("NAME".equals(key)) name = value;
+            if ("JSON".equals(key)) {
+                try { port = Integer.parseInt(value); }
+                catch (NumberFormatException ignored) { }
+            }
+            pos += size;
+        }
+        if (port < 1 || port > 65535) port = 9000;
+        return new Server(name, sender.getHostAddress(), port);
     }
 
     private LyrionDiscovery() { }

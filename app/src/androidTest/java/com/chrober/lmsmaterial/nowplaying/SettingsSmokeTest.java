@@ -1,0 +1,91 @@
+package com.chrober.lmsmaterial.nowplaying;
+
+import android.content.Context;
+import androidx.test.core.app.ActivityScenario;
+import androidx.test.core.app.ApplicationProvider;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import static org.junit.Assert.*;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.WindowManager;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.TextView;
+
+/** API 22+ native UI tests, running on a clean emulator profile. */
+@RunWith(AndroidJUnit4.class)
+public final class SettingsSmokeTest {
+    @Before public void clearConfiguration() {
+        ApplicationProvider.getApplicationContext()
+                .getSharedPreferences("material_now_playing", Context.MODE_PRIVATE)
+                .edit().clear().commit();
+    }
+
+    private static View findText(View root, String text) {
+        if (root instanceof TextView && text.contentEquals(((TextView) root).getText()))
+            return root;
+        if (root instanceof ViewGroup) {
+            ViewGroup parent = (ViewGroup) root;
+            for (int i = 0; i < parent.getChildCount(); i++) {
+                View match = findText(parent.getChildAt(i), text);
+                if (match != null) return match;
+            }
+        }
+        return null;
+    }
+
+    private static EditText findInput(View root) {
+        if (root instanceof EditText) return (EditText) root;
+        if (root instanceof ViewGroup) {
+            ViewGroup parent = (ViewGroup) root;
+            for (int i = 0; i < parent.getChildCount(); i++) {
+                EditText match = findInput(parent.getChildAt(i));
+                if (match != null) return match;
+            }
+        }
+        return null;
+    }
+
+    @Test public void firstLaunchShowsNativeSettingsAndSetupActions() {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                View root = activity.findViewById(android.R.id.content);
+                assertNotNull(findText(root, "Lyrion Display"));
+                assertNotNull(findText(root, "LYRION SERVER"));
+                assertNotNull(findText(root, "PLAYER"));
+                assertNotNull(findText(root, "Save and show Now Playing"));
+                assertNotNull(findInput(root));
+            });
+        }
+    }
+
+    @Test public void invalidServerCannotBeSaved() {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                View root = activity.findViewById(android.R.id.content);
+                EditText input = findInput(root);
+                Button save = (Button) findText(root, "Save and show Now Playing");
+                assertNotNull(input);
+                assertNotNull(save);
+                input.setText("ftp://not-a-lyrion-server");
+                save.performClick();
+                String configured = activity.getSharedPreferences(
+                        "material_now_playing", Context.MODE_PRIVATE).getString("server", "");
+                assertEquals("", configured);
+            });
+        }
+    }
+
+    @Test public void settingsDoNotKeepDisplayAwake() {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                int flags = activity.getWindow().getAttributes().flags;
+                assertEquals(0, flags & WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            });
+        }
+    }
+
+}

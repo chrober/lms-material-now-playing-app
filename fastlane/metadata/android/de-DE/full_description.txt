@@ -1,0 +1,9 @@
+Lyrion Display verwandelt Android-TV-Geräte, Fire TV, Tablets und Smartphones in eine Vollbildanzeige für die aktuelle Wiedergabe eines Lyrion Music Servers.
+
+Server und Player einmal auswählen – danach startet die Anwendung direkt mit der „Now Playing“-Ansicht des bestehenden Material Skin. Designs und Farben lassen sich anpassen; auf Wunsch bleibt der Bildschirm eingeschaltet.
+
+Die Anwendung dient ausschließlich zur Anzeige. Die Wiedergabe wird weiterhin über andere Lyrion-Clients gesteuert. Material Skin läuft auf dem eigenen Lyrion-Server. Weder Cloud-Konto noch Google Play Services sind erforderlich.
+
+Voraussetzung ist ein erreichbarer Lyrion Music Server mit aktiviertem Material Skin. Die automatische Servererkennung verwendet Broadcasts im lokalen Netzwerk; alternativ kann der Server manuell eingetragen werden. Server mit Authentifizierung werden derzeit nicht unterstützt.
+
+Dies ist eine unabhängige, inoffizielle Open-Source-Anwendung.

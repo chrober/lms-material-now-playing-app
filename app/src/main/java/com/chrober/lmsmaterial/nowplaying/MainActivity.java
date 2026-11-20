@@ -8,6 +8,7 @@ import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -125,6 +126,10 @@ public final class MainActivity extends Activity {
 
     /** Optional ADB convenience; no external URL is ever opened in a different app. */
     private boolean acceptUrlOverride(Intent intent) {
+        // MainActivity is exported. An arbitrary third-party application must
+        // not be able to overwrite the trusted server/player in production.
+        if ((getApplicationInfo().flags
+                & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) == 0) return false;
         String raw = intent == null ? null : intent.getStringExtra("url");
         if (TextUtils.isEmpty(raw)) return false;
         try {
@@ -629,6 +634,7 @@ public final class MainActivity extends Activity {
     }
 
     private void loadNowPlaying(FrameLayout root, TextView loading) {
+        final String trustedServer = ServerAddress.normalize(prefs.getString(KEY_SERVER, ""));
         browser = new WebView(this);
         browser.setBackgroundColor(BG);
         browser.setFocusable(false);
@@ -653,6 +659,25 @@ public final class MainActivity extends Activity {
         // actual Material Skin page is verified. No raw HTTP error is exposed.
         root.addView(browser, 0, new FrameLayout.LayoutParams(-1, -1));
         browser.setWebViewClient(new WebViewClient() {
+            // Material Skin is view-only. Never let its page navigate the main
+            // frame to another origin, including via a JavaScript redirect.
+            @Override public boolean shouldOverrideUrlLoading(WebView view,
+                    WebResourceRequest request) {
+                return request.isForMainFrame()
+                        && !ServerAddress.isAllowedMaterialNavigation(
+                                trustedServer, request.getUrl().toString());
+            }
+            @SuppressWarnings("deprecation")
+            @Override public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                return !ServerAddress.isAllowedMaterialNavigation(trustedServer, url);
+            }
+            @Override public void onPageStarted(WebView view, String url, Bitmap favicon) {
+                if (browser == view && displayVisible
+                        && !ServerAddress.isAllowedMaterialNavigation(trustedServer, url)) {
+                    view.stopLoading();
+                    connectionFailed("Blocked navigation outside this Lyrion server.");
+                }
+            }
             @Override public void onPageFinished(WebView view, String url) {
                 if (browser != view || !displayVisible) return;
                 // Theme/color are set via Material Skin's supported URL parameter.
