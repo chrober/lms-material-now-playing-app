@@ -1,7 +1,13 @@
 package com.chrober.lmsmaterial.nowplaying;
 
 import android.content.Context;
-import android.test.ActivityInstrumentationTestCase2;
+import androidx.test.core.app.ActivityScenario;
+import androidx.test.core.app.ApplicationProvider;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import static org.junit.Assert.*;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
@@ -10,12 +16,10 @@ import android.widget.EditText;
 import android.widget.TextView;
 
 /** API 22+ native UI tests, running on a clean emulator profile. */
-public final class SettingsSmokeTest extends ActivityInstrumentationTestCase2<MainActivity> {
-    public SettingsSmokeTest() { super(MainActivity.class); }
-
-    @Override protected void setUp() throws Exception {
-        super.setUp();
-        getInstrumentation().getTargetContext()
+@RunWith(AndroidJUnit4.class)
+public final class SettingsSmokeTest {
+    @Before public void clearConfiguration() {
+        ApplicationProvider.getApplicationContext()
                 .getSharedPreferences("material_now_playing", Context.MODE_PRIVATE)
                 .edit().clear().commit();
     }
@@ -45,36 +49,43 @@ public final class SettingsSmokeTest extends ActivityInstrumentationTestCase2<Ma
         return null;
     }
 
-    public void testFirstLaunchShowsNativeSettingsAndSetupActions() {
-        MainActivity activity = getActivity();
-        View root = activity.findViewById(android.R.id.content);
-        assertNotNull(findText(root, "Lyrion Display"));
-        assertNotNull(findText(root, "SERVER"));
-        assertNotNull(findText(root, "PLAYER"));
-        assertNotNull(findText(root, "Save and show Now Playing"));
-        assertNotNull(findInput(root));
+    @Test public void firstLaunchShowsNativeSettingsAndSetupActions() {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                View root = activity.findViewById(android.R.id.content);
+                assertNotNull(findText(root, "Lyrion Display"));
+                assertNotNull(findText(root, "SERVER"));
+                assertNotNull(findText(root, "PLAYER"));
+                assertNotNull(findText(root, "Save and show Now Playing"));
+                assertNotNull(findInput(root));
+            });
+        }
     }
 
-    public void testInvalidServerCannotBeSaved() throws Throwable {
-        MainActivity activity = getActivity();
-        View root = activity.findViewById(android.R.id.content);
-        EditText input = findInput(root);
-        Button save = (Button) findText(root, "Save and show Now Playing");
-        assertNotNull(input);
-        assertNotNull(save);
-        runTestOnUiThread(() -> {
-            input.setText("ftp://not-a-lyrion-server");
-            save.performClick();
-        });
-        getInstrumentation().waitForIdleSync();
-        String configured = activity.getSharedPreferences(
-                "material_now_playing", Context.MODE_PRIVATE).getString("server", "");
-        assertEquals("", configured);
+    @Test public void invalidServerCannotBeSaved() {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                View root = activity.findViewById(android.R.id.content);
+                EditText input = findInput(root);
+                Button save = (Button) findText(root, "Save and show Now Playing");
+                assertNotNull(input);
+                assertNotNull(save);
+                input.setText("ftp://not-a-lyrion-server");
+                save.performClick();
+                String configured = activity.getSharedPreferences(
+                        "material_now_playing", Context.MODE_PRIVATE).getString("server", "");
+                assertEquals("", configured);
+            });
+        }
     }
 
-    public void testSettingsDoNotKeepDisplayAwake() {
-        MainActivity activity = getActivity();
-        int flags = activity.getWindow().getAttributes().flags;
-        assertEquals(0, flags & WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+    @Test public void settingsDoNotKeepDisplayAwake() {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                int flags = activity.getWindow().getAttributes().flags;
+                assertEquals(0, flags & WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            });
+        }
     }
+
 }
