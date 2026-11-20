@@ -98,9 +98,8 @@ final class MaterialTheme {
         return t;
     }
 
-    static String urlTheme(String theme, boolean colorToolbars) {
-        String t = safeKey(theme) ? theme : DEFAULT_THEME;
-        return t + (colorToolbars ? "-colored" : "");
+    static String urlTheme(String theme) {
+        return safeKey(theme) ? theme : DEFAULT_THEME;
     }
 
     static int parseHex(String value, int fallback) {
