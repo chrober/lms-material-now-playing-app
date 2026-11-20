@@ -29,7 +29,11 @@ android {
     buildTypes {
         release {
             minifyEnabled false
-            signingConfig signingConfigs.production
+            // F-Droid builds from source without the developer's private signing key.
+            // Preserve production signing for GitHub releases when configured.
+            if (System.getenv('ANDROID_KEYSTORE_PATH')) {
+                signingConfig signingConfigs.production
+            }
         }
     }
     compileOptions {
@@ -44,4 +48,6 @@ android {
 
 dependencies {
     testImplementation 'junit:junit:4.13.2'
+    // Android's org.json implementation is only a stub in host-side JVM tests.
+    testImplementation 'org.json:json:20260814'
 }

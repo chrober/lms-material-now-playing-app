@@ -23,4 +23,26 @@ public class ServerAddressTest {
         assertNull(ServerAddress.normalize("http://server:70000"));
         assertNull(ServerAddress.normalize("http://server:0"));
     }
+
+    @Test public void protectsWebViewFromExternalMainFrameNavigation() {
+        String server = "http://192.0.2.50:9000";
+        assertTrue(ServerAddress.isAllowedMaterialNavigation(
+                server, "http://192.0.2.50:9000/material/np-only?player=Kitchen"));
+        assertTrue(ServerAddress.isAllowedMaterialNavigation(
+                server, "http://192.0.2.50:9000/material/?layout=desktop"));
+        assertFalse(ServerAddress.isAllowedMaterialNavigation(
+                server, "https://evil.example.org/material/?player=Kitchen"));
+        assertFalse(ServerAddress.isAllowedMaterialNavigation(
+                server, "http://192.0.2.50:9001/material/"));
+        assertFalse(ServerAddress.isAllowedMaterialNavigation(
+                server, "http://192.0.2.50:9000.evil.org/material/"));
+        assertFalse(ServerAddress.isAllowedMaterialNavigation(
+                server, "http://192.0.2.50:9000@evil.org/material/"));
+        assertFalse(ServerAddress.isAllowedMaterialNavigation(
+                server, "javascript:alert(1)"));
+        assertFalse(ServerAddress.isAllowedMaterialNavigation(
+                server, "file:///sdcard/payload.html"));
+        assertFalse(ServerAddress.isAllowedMaterialNavigation(
+                server, "http://192.0.2.50:9000/other-page"));
+    }
 }
