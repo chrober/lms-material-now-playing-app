@@ -8,6 +8,7 @@ import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -653,6 +654,25 @@ public final class MainActivity extends Activity {
         // actual Material Skin page is verified. No raw HTTP error is exposed.
         root.addView(browser, 0, new FrameLayout.LayoutParams(-1, -1));
         browser.setWebViewClient(new WebViewClient() {
+            // Material Skin is view-only. Never let its page navigate the main
+            // frame to another origin, including via a JavaScript redirect.
+            @Override public boolean shouldOverrideUrlLoading(WebView view,
+                    WebResourceRequest request) {
+                return request.isForMainFrame()
+                        && !ServerAddress.isAllowedMaterialNavigation(
+                                server, request.getUrl().toString());
+            }
+            @SuppressWarnings("deprecation")
+            @Override public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                return !ServerAddress.isAllowedMaterialNavigation(server, url);
+            }
+            @Override public void onPageStarted(WebView view, String url, Bitmap favicon) {
+                if (browser == view && displayVisible
+                        && !ServerAddress.isAllowedMaterialNavigation(server, url)) {
+                    view.stopLoading();
+                    connectionFailed("Blocked navigation outside this Lyrion server.");
+                }
+            }
             @Override public void onPageFinished(WebView view, String url) {
                 if (browser != view || !displayVisible) return;
                 // Theme/color are set via Material Skin's supported URL parameter.

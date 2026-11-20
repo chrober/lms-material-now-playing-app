@@ -77,7 +77,7 @@ final class MaterialSkinProbe {
         }
     }
 
-    private static Result request(String url) {
+    static Result request(String url) {
         HttpURLConnection connection = null;
         try {
             connection = (HttpURLConnection) new URL(url).openConnection();

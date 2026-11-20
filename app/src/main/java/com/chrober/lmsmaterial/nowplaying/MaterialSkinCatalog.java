@@ -31,43 +31,62 @@ final class MaterialSkinCatalog {
 
     static void fetch(String server, Callback callback) {
         new Thread(() -> {
-            List<MaterialTheme.Option> themes = new ArrayList<>();
-            List<MaterialTheme.ColorOption> colors = new ArrayList<>();
-            JSONObject defaults = null;
-            try {
-                JSONObject result = request(server, new JSONArray()
-                        .put("material-skin").put("themes").put("platform:android"));
-                JSONArray available = result.optJSONArray("themes");
-                if (available != null) for (int i=0; i<available.length(); i++) {
-                    JSONObject theme = available.optJSONObject(i);
-                    if (theme == null) continue;
-                    String key = theme.optString("key", "");
-                    if (MaterialTheme.safeKey(key))
-                        themes.add(new MaterialTheme.Option(key, theme.optString("label", key).replace('-', ' ')));
-                }
-                JSONArray extraColors = result.optJSONArray("colors");
-                if (extraColors != null) for (int i=0; i<extraColors.length(); i++) {
-                    JSONObject color = extraColors.optJSONObject(i);
-                    if (color == null) continue;
-                    String key = color.optString("key", "");
-                    String value = color.optString("color", "");
-                    if (MaterialTheme.safeKey(key) && MaterialTheme.parseHex(value, 0) != 0) {
-                        colors.add(new MaterialTheme.ColorOption(key, color.optString("label", key),
-                                value, value));
-                    }
-                }
-            } catch (Exception ignored) { // Older server/offline: built-ins remain usable.
-            }
-            try {
-                JSONObject result = request(server, new JSONArray()
-                        .put("pref").put("plugin.material-skin:defaults").put("?"));
-                String raw = result.optString("_p2", "");
-                if (raw.startsWith("{")) defaults = new JSONObject(raw);
-            } catch (Exception ignored) { // Server UI defaults are optional.
-            }
-            Result result = new Result(themes, colors, defaults);
+            Result result = fetchBlocking(server);
             new Handler(Looper.getMainLooper()).post(() -> callback.completed(result));
         }, "lyrion-material-theme-catalog").start();
+    }
+
+    /** Separate network IO from the main-thread callback for integration testing. */
+    static Result fetchBlocking(String server) {
+        List<MaterialTheme.Option> themes = new ArrayList<>();
+        List<MaterialTheme.ColorOption> colors = new ArrayList<>();
+        JSONObject defaults = null;
+        try {
+            JSONObject response = request(server, new JSONArray()
+                    .put("material-skin").put("themes").put("platform:android"));
+            Result catalog = parseCatalog(response);
+            themes.addAll(catalog.themes);
+            colors.addAll(catalog.colors);
+        } catch (Exception ignored) { // Older server/offline: built-ins remain usable.
+        }
+        try {
+            JSONObject response = request(server, new JSONArray()
+                    .put("pref").put("plugin.material-skin:defaults").put("?"));
+            defaults = parseDefaults(response);
+        } catch (Exception ignored) { // Server UI defaults are optional.
+        }
+        return new Result(themes, colors, defaults);
+    }
+
+    /** Parse JSON-RPC result object independently of network and Android runtime. */
+    static Result parseCatalog(JSONObject result) {
+        List<MaterialTheme.Option> themes = new ArrayList<>();
+        List<MaterialTheme.ColorOption> colors = new ArrayList<>();
+        JSONArray available = result.optJSONArray("themes");
+        if (available != null) for (int i=0; i<available.length(); i++) {
+            JSONObject theme = available.optJSONObject(i);
+            if (theme == null) continue;
+            String key = theme.optString("key", "");
+            if (MaterialTheme.safeKey(key))
+                themes.add(new MaterialTheme.Option(key, theme.optString("label", key).replace('-', ' ')));
+        }
+        JSONArray extraColors = result.optJSONArray("colors");
+        if (extraColors != null) for (int i=0; i<extraColors.length(); i++) {
+            JSONObject color = extraColors.optJSONObject(i);
+            if (color == null) continue;
+            String key = color.optString("key", "");
+            String value = color.optString("color", "");
+            if (MaterialTheme.safeKey(key) && MaterialTheme.parseHex(value, 0) != 0) {
+                colors.add(new MaterialTheme.ColorOption(key, color.optString("label", key),
+                        value, value));
+            }
+        }
+        return new Result(themes, colors, null);
+    }
+
+    static JSONObject parseDefaults(JSONObject result) throws Exception {
+        String raw = result.optString("_p2", "");
+        return raw.startsWith("{") ? new JSONObject(raw) : null;
     }
 
     private static JSONObject request(String server, JSONArray command) throws Exception {

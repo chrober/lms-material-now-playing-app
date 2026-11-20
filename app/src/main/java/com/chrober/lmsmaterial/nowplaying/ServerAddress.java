@@ -26,5 +26,22 @@ final class ServerAddress {
             return null;
         }
     }
+    /** Main-frame WebView navigation must remain on our configured Material Skin origin. */
+    static boolean isAllowedMaterialNavigation(String server, String candidate) {
+        String expected = normalize(server);
+        if (expected == null || candidate == null) return false;
+        try {
+            URI page = new URI(candidate);
+            if (page.getScheme() == null || page.getRawAuthority() == null
+                    || page.getRawUserInfo() != null) return false;
+            String origin = normalize(page.getScheme() + "://" + page.getRawAuthority());
+            if (!expected.equalsIgnoreCase(origin)) return false;
+            String path = page.getPath();
+            return "/material".equals(path) || (path != null && path.startsWith("/material/"));
+        } catch (URISyntaxException | IllegalArgumentException ignored) {
+            return false;
+        }
+    }
+
     private ServerAddress() { }
 }
