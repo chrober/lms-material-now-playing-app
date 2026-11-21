@@ -200,11 +200,15 @@ jobs:
           docker run --rm --user vagrant --entrypoint /bin/bash \
             -v "$GITHUB_WORKSPACE/fdroid:/build" -w /build \
             -v "$GITHUB_WORKSPACE/fdroidserver:/home/vagrant/fdroidserver:ro" \
+            -e HOME=/home/vagrant \
             -e VERSION_CODE="$VERSION_CODE" \
             registry.gitlab.com/fdroid/fdroidserver:buildserver-trixie \
             -e -u -o pipefail -c '
               . /etc/profile.d/bsenv.sh
               export PATH="$fdroidserver:$PATH" PYTHONPATH="$fdroidserver"
+              # The host-mounted Git repositories have a different owner UID.
+              git config --global --add safe.directory /home/vagrant/fdroidserver
+              git config --global --add safe.directory /build/build/com.chrober.lmsmaterial.nowplaying
               fdroid readmeta
               fdroid lint com.chrober.lmsmaterial.nowplaying
               fdroid build --test --force --verbose com.chrober.lmsmaterial.nowplaying 2>&1 | tee exact-release-buildserver.log
