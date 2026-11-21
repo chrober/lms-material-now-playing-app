@@ -2,21 +2,50 @@
 
 The canonical app package name is `com.chrober.lmsmaterial.nowplaying`, despite the public name **Lyrion Display**.
 
-## Recipe status
+## Recipe status: v0.3.0 pinned, still disabled
 
-`fdroid/metadata/com.chrober.lmsmaterial.nowplaying.yml` is a **disabled review-only build** pointing at QA merge commit
-`35b1749c9d4036ec765aaee51b7dfa2de43ed8a1`. That packaging snapshot commit includes the Gradle pin and still declares
-`0.2.0` / versionCode 8, but **it is NOT the published `v0.2.0` release source**.
-Do **not** submit this entry or enable the build.
+The disabled review recipe `fdroid/metadata/com.chrober.lmsmaterial.nowplaying.yml`
+now points to the **exact published GitHub `v0.3.0` source commit**:
+`fb4cb6359e1931519f586d6602c25e9b95e51e03`, with versionName
+`0.3.0` and versionCode `9`. It deliberately remains **disabled**;
+**no F-Droid submission or external publication** has been made.
 
-We deliberately do not rewrite the published tag or reuse versionCode 8 for a new release.
+The earlier pinned QA snapshot (`35b1749…`, versionCode 8) was used
+only for the local F-Droid source-build and reproducibility experiments
+documented below. It is **not** the actual v0.2.0 release.
 
-Before the first submission:
-1. Prepare **v0.3.0 / versionCode 9** on a release branch and complete [device acceptance](V0.3.0-ACCEPTANCE.md) before merging/tagging. The current disabled QA recipe remains pinned to the older test snapshot until a real v0.3.0 release exists.
-2. Make a signed GitHub release **from that exact tag**, then update this draft recipe to the tag.
-3. Remove `disable:` only after successful `fdroid build` and signature reproducibility checks.
-4. Submit the resulting metadata by a **manual**, explicitly approved GitLab merge request.
-   Never submit or publish automatically because a GitHub release/tag was created.
+Before official F-Droid inclusion:
+1. **Completed locally:** exact v0.3.0 source build, published APK SHA-256,
+   certificate and `apksigcopier compare --unsigned` passed (see evidence below).
+2. Confirm compatibility with F-Droid's **official buildserver** environment;
+   a passing GitHub Ubuntu source build is helpful but not equivalent.
+3. Complete the storefront screenshots, attribution and policy review.
+4. Only after verification, remove `disable:` and add the proper
+   upstream-signed APK metadata; submit through an explicitly approved,
+   **manual GitLab merge request**, not automatically when GitHub tags change.
+
+## Published v0.3.0 — local independent reproducibility PASSED (21 Nov 2026)
+
+The **actual published GitHub APK** was reproduced in
+[GitHub Actions run 44882528618](https://github.com/chrober/lyrion-display/actions/runs/44882528618),
+using an independent `fdroidserver 2.4.5` source scan and build.
+
+- Source tag `v0.3.0` and build recipe both resolve to
+  `fb4cb6359e1931519f586d6602c25e9b95e51e03`.
+- F-Droid source scanner and `fdroid build --test --force`: **1 build succeeded**.
+- F-Droid unsigned APK SHA-256:
+  `4de2f0deaa2ad9edc7cff597ba60af599122a5183bc348b3107a4c6c902e5e88`.
+- The official GitHub `lyrion-display-v0.3.0.apk` passed its published
+  `.sha256` check and has developer certificate SHA-256
+  `af624ba3a730a5bf4a9d0b77e2bed2ec557744705362d4a4445e6dcb125f1dfb`.
+- **`apksigcopier compare --unsigned published.apk fdroid-built.apk` PASSED**,
+  confirming the published upstream signature is compatible with the
+  independent source-build output.
+
+This proves **local exact-release reproducibility** on GitHub-hosted Ubuntu.
+It does **not** prove the official F-Droid buildserver image will produce the
+same binary or that F-Droid will accept the application. The recipe
+**remains disabled** pending those checks and storefront review.
 
 ## Build expectations
 
