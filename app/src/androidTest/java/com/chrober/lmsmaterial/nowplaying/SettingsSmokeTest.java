@@ -63,6 +63,16 @@ public final class SettingsSmokeTest {
                 assertNull(findText(root, "Cancel and return to Now Playing"));
                 assertNotNull(findText(root, "Show date and time"));
                 assertNull(findText(root, "Playlist position shows the current track's place in the playback queue (for example, 7 / 42)."));
+                String version;
+                try {
+                    version = activity.getPackageManager().getPackageInfo(
+                            activity.getPackageName(), 0).versionName;
+                } catch (android.content.pm.PackageManager.NameNotFoundException e) {
+                    throw new AssertionError("Installed package metadata missing", e);
+                }
+                TextView footer = (TextView) findText(root, "Version " + version);
+                assertNotNull("Installed version should appear as Settings footer", footer);
+                assertFalse("Version footer must not take TV remote focus", footer.isFocusable());
                 assertNotNull(findInput(root));
             });
         }
