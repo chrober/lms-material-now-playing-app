@@ -1,0 +1,90 @@
+name: QA only - signed v0.3.0 candidate (NO RELEASE)
+
+on:
+  push:
+    branches: [build/v0.3.0-rc-qa-20261121]
+    paths: [.github/workflows/build-v030-candidate.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  rc:
+    name: Signed v0.3.0 QA candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: d7360d726425288705cc29851433ffbed48ae117
+          persist-credentials: false
+      - name: Confirm immutable PR source and Android identity
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "d7360d726425288705cc29851433ffbed48ae117"
+          grep -Fq "applicationId 'com.chrober.lmsmaterial.nowplaying'" app/build.gradle
+          grep -q "versionCode 9" app/build.gradle
+          grep -q "versionName '0.3.0'" app/build.gradle
+          bash -n tools/sign_reproducible_apk.sh
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android build tools
+        shell: bash
+        run: |
+          sdkmanager_bin="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          test -x "$sdkmanager_bin"
+          "$sdkmanager_bin" --install 'platforms;android-35' 'build-tools;35.0.0' 'build-tools;34.0.0'
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '9.9.1'
+          cache-provider: basic
+      - name: Validate source and build unsigned APK
+        shell: bash
+        run: |
+          test -z "${ANDROID_KEYSTORE_PATH:-}"
+          gradle --no-daemon :app:lintDebug :app:testDebugUnitTest :app:assembleRelease
+          test -s app/build/outputs/apk/release/app-release-unsigned.apk
+          python3 tools/verify_launcher_assets.py app/build/outputs/apk/release/app-release-unsigned.apk
+      - name: Decode existing production keystore
+        shell: bash
+        env:
+          QA_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          test -n "$QA_KEYSTORE_BASE64"
+          printf '%s' "$QA_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/v030-qa.jks"
+          chmod 600 "$RUNNER_TEMP/v030-qa.jks"
+      - name: Sign and verify certificate/reproducible copy
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          python3 -m pip install --disable-pip-version-check 'apksigcopier==1.1.1'
+          bash tools/sign_reproducible_apk.sh \
+            app/build/outputs/apk/release/app-release-unsigned.apk \
+            app/build/outputs/apk/release/app-release.apk \
+            "$RUNNER_TEMP/v030-qa.jks"
+          python3 tools/verify_launcher_assets.py app/build/outputs/apk/release/app-release.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging app/build/outputs/apk/release/app-release.apk > "$RUNNER_TEMP/app-badging"
+          grep -Fq "name='com.chrober.lmsmaterial.nowplaying' versionCode='9' versionName='0.3.0'" "$RUNNER_TEMP/app-badging"
+          grep -q "^application-label:'Lyrion Display'" "$RUNNER_TEMP/app-badging"
+      - name: Stage signed QA-only candidate and checksum
+        shell: bash
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk lyrion-display-v0.3.0-rc-qa.apk
+          sha256sum lyrion-display-v0.3.0-rc-qa.apk > lyrion-display-v0.3.0-rc-qa.apk.sha256
+          printf '%s\n' 'd7360d726425288705cc29851433ffbed48ae117' > source-commit.txt
+          echo 'TEST ONLY: Production-signed QA APK. NOT a GitHub or F-Droid release.' > QA-ONLY.txt
+      - uses: actions/upload-artifact@v7
+        with:
+          name: lyrion-display-v0.3.0-signed-qa
+          path: |
+            lyrion-display-v0.3.0-rc-qa.apk
+            lyrion-display-v0.3.0-rc-qa.apk.sha256
+            source-commit.txt
+            QA-ONLY.txt
+          retention-days: 14
+          if-no-files-found: error
