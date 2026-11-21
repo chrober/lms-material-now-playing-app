@@ -15,15 +15,37 @@ only for the local F-Droid source-build and reproducibility experiments
 documented below. It is **not** the actual v0.2.0 release.
 
 Before official F-Droid inclusion:
-1. Check the **v0.3.0** release APK and SHA-256 against a **fresh independent
-   `fdroidserver` build of the exact v0.3.0 commit** and validate its
-   production certificate via `apksigcopier compare --unsigned`.
+1. **Completed locally:** exact v0.3.0 source build, published APK SHA-256,
+   certificate and `apksigcopier compare --unsigned` passed (see evidence below).
 2. Confirm compatibility with F-Droid's **official buildserver** environment;
    a passing GitHub Ubuntu source build is helpful but not equivalent.
 3. Complete the storefront screenshots, attribution and policy review.
 4. Only after verification, remove `disable:` and add the proper
    upstream-signed APK metadata; submit through an explicitly approved,
    **manual GitLab merge request**, not automatically when GitHub tags change.
+
+## Published v0.3.0 — local independent reproducibility PASSED (21 Nov 2026)
+
+The **actual published GitHub APK** was reproduced in
+[GitHub Actions run 44882528618](https://github.com/chrober/lyrion-display/actions/runs/44882528618),
+using an independent `fdroidserver 2.4.5` source scan and build.
+
+- Source tag `v0.3.0` and build recipe both resolve to
+  `fb4cb6359e1931519f586d6602c25e9b95e51e03`.
+- F-Droid source scanner and `fdroid build --test --force`: **1 build succeeded**.
+- F-Droid unsigned APK SHA-256:
+  `4de2f0deaa2ad9edc7cff597ba60af599122a5183bc348b3107a4c6c902e5e88`.
+- The official GitHub `lyrion-display-v0.3.0.apk` passed its published
+  `.sha256` check and has developer certificate SHA-256
+  `af624ba3a730a5bf4a9d0b77e2bed2ec557744705362d4a4445e6dcb125f1dfb`.
+- **`apksigcopier compare --unsigned published.apk fdroid-built.apk` PASSED**,
+  confirming the published upstream signature is compatible with the
+  independent source-build output.
+
+This proves **local exact-release reproducibility** on GitHub-hosted Ubuntu.
+It does **not** prove the official F-Droid buildserver image will produce the
+same binary or that F-Droid will accept the application. The recipe
+**remains disabled** pending those checks and storefront review.
 
 ## Build expectations
 
