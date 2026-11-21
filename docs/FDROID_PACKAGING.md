@@ -149,14 +149,25 @@ Without reproducible upstream signing, standard F-Droid signing uses a different
 certificate. **Switching between the GitHub and F-Droid APKs would then require
 uninstalling the app and losing its saved configuration.**
 
-## Testing
+## Repeatable QA verification without submission
 
-This repository provides a read-only preflight workflow to validate the recipe
-and its pinned source and run `fdroid readmeta` and `fdroid lint`.
-The build-server test is a separate, resource-intensive manual verification.
-Full instructions:
-- https://f-droid.org/docs/Submitting_to_F-Droid_Quick_Start_Guide/
-- https://f-droid.org/docs/Build_Metadata_Reference/
+The permanently **disabled** recipe pins the exact existing GitHub v0.3.0 release (versionCode 9), not the earlier versionCode 8 QA snapshot. The validation tool `tools/check_fdroid_recipe.py` checks the tag/source identity and refuses an enabled recipe.
+
+The workflow [F-Droid metadata and source-build preflight](../.github/workflows/fdroid-preflight.yml) provides these paths:
+
+1. **Automatic on F-Droid-related PRs:** metadata parser/linter and an isolated test inside the F-Droid `registry.gitlab.com/fdroid/fdroidserver:buildserver-trixie` CI container. It reads source SHA, version and versionCode from the disabled recipe and compares the resulting unsigned APK against the existing, checksummed, developer-signed GitHub release using `apksigcopier`.
+2. **Manual `source_build` input:** source scanner and `fdroid build --test --force` with pinned `fdroidserver 2.4.5` on GitHub-hosted Ubuntu, reproducing the previously successful test without hardcoded old QA commits.
+3. **Manual `buildserver_image` input:** explicitly rerun the isolated F-Droid CI container test without a PR.
+
+GitHub Actions → **F-Droid metadata and source-build preflight (no publishing)** → **Run workflow**. Select `main` and enable only the intended test option(s). The local Ubuntu and CI-container jobs are independent: either can be selected without the other. A test success must be confirmed in its linked workflow run rather than inferred from the existence of the job.
+
+These QA jobs have `contents: read` only, no signing secrets or GitLab token, do not change tags, do not activate the recipe, and **never submit or publish APKs**. Logs and checksum/certificate evidence are the only uploaded artifacts. The pre-existing signed GitHub APK is downloaded read-only solely for comparison.
+
+**Scope limit:** F-Droid's buildserver **CI image** uses F-Droid's provisioning but is not proof that an actual official production build or metadata review has succeeded. That verification and a suitable final listing (genuine rights-cleared screenshots, attribution and policy review) are still required before any user-approved submission.
+
+References:
+- https://f-droid.org/en/docs/Submitting_to_F-Droid_Quick_Start_Guide/
+- https://f-droid.org/en/docs/Build_Metadata_Reference/
 - https://f-droid.org/en/docs/Reproducible_Builds/
 
 ## Source/licensing and branding
