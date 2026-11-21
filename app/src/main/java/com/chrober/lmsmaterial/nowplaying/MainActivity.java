@@ -353,6 +353,9 @@ public final class MainActivity extends Activity {
         returnButton.setEnabled(configured());
         returnButton.setOnClickListener(v -> returnToNowPlaying());
         add(content, returnButton, 0, 6);
+        TextView versionFooter = label(installedVersionLabel(), 14, SUBTEXT, false);
+        versionFooter.setGravity(Gravity.CENTER);
+        add(content, versionFooter, 18, 0);
         serverInput.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
@@ -1178,6 +1181,16 @@ public final class MainActivity extends Activity {
     private static double linear(int component) {
         double value = component / 255.0;
         return value <= 0.04045 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4);
+    }
+
+    /** Display the installed APK version, not the Android-internal versionCode. */
+    private String installedVersionLabel() {
+        try {
+            String version = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+            return "Version " + (TextUtils.isEmpty(version) ? "unknown" : version);
+        } catch (android.content.pm.PackageManager.NameNotFoundException e) {
+            return "Version unknown";
+        }
     }
 
     private TextView label(String value, int size, int color, boolean bold) {
