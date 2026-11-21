@@ -1,0 +1,1 @@
+Lyrion Display now lets you configure playback progress, technical track information, playlist position and Material Skin's original clock independently. Settings save automatically, with safe server/player changes and a faster return to Now Playing. Includes expanded QA coverage and F-Droid reproducible-build preparation.
