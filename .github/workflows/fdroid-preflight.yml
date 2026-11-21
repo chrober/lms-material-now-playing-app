@@ -8,10 +8,16 @@ on:
       - gradle/wrapper/gradle-wrapper.properties
       - tools/check_fdroid_recipe.py
       - .github/workflows/fdroid-preflight.yml
+      - docs/FDROID_PACKAGING.md
+      - docs/FDROID_READINESS.md
   workflow_dispatch:
     inputs:
       source_build:
-        description: 'Also run fdroid build --test --force on the disabled snapshot'
+        description: 'Run exact published release source build and signature comparison (no publishing)'
+        type: boolean
+        default: false
+      buildserver_image:
+        description: 'Run an isolated exact-release build using the F-Droid buildserver CI image (no publishing)'
         type: boolean
         default: false
 
@@ -36,7 +42,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install F-Droid metadata tools
-        run: python -m pip install --disable-pip-version-check fdroidserver PyYAML
+        run: python -m pip install --disable-pip-version-check 'fdroidserver==2.4.5' PyYAML
       - name: Check version, source SHA and disabled recipe
         run: python tools/check_fdroid_recipe.py
       - name: Validate using F-Droid's metadata parser and linter
@@ -46,11 +52,12 @@ jobs:
           fdroid readmeta
           fdroid lint com.chrober.lmsmaterial.nowplaying
 
+
   fdroid-source-build:
-    name: F-Droid source build (manual, unpublished)
+    name: Exact-release source rebuild (manual, no publishing)
     if: github.event_name == 'workflow_dispatch' && inputs.source_build
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v7
         with:
@@ -67,50 +74,224 @@ jobs:
         shell: bash
         run: |
           sdkmanager_bin="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
-          "$sdkmanager_bin" --install 'platforms;android-35' 'build-tools;35.0.0'
+          test -x "$sdkmanager_bin"
+          "$sdkmanager_bin" --install 'platforms;android-35' 'build-tools;35.0.0' 'build-tools;34.0.0'
       - uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: '9.9.1'
           cache-provider: basic
-      - name: Install F-Droid tools
-        run: python -m pip install --disable-pip-version-check fdroidserver PyYAML
-      - name: Verify recipe
-        run: python tools/check_fdroid_recipe.py
-      - name: Build the disabled snapshot with F-Droid's scanner/build pipeline
+      - name: Install test-only F-Droid and signature tools
+        run: python3 -m pip install --disable-pip-version-check 'fdroidserver==2.4.5' PyYAML 'apksigcopier==1.1.1'
+      - name: Validate disabled recipe and extract exact pinned release
+        id: pinned
+        run: |
+          python3 tools/check_fdroid_recipe.py
+          python3 - <<'PY'
+          import os, yaml
+          with open("fdroid/metadata/com.chrober.lmsmaterial.nowplaying.yml", encoding="utf-8") as f:
+              recipe = yaml.safe_load(f)
+          b = recipe["Builds"][0]
+          assert b["disable"], "Recipe must remain disabled"
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+              out.write(f"source_sha={b['commit']}\n")
+              out.write(f"version_code={b['versionCode']}\n")
+              out.write(f"version_name={b['versionName']}\n")
+          PY
+      - name: Build pinned release using fdroidserver scanner
+        env:
+          SOURCE_SHA: ${{ steps.pinned.outputs.source_sha }}
+          VERSION_CODE: ${{ steps.pinned.outputs.version_code }}
         shell: bash
         run: |
           cd fdroid
           printf "sdk_path: '%s'\n" "$ANDROID_HOME" > config.yml
-          # The pip package lacks gradlew-fdroid. Use the pinned Gradle 9.9.1
-          # for this local preflight; the official buildserver supplies its own wrapper.
           printf "gradle: '%s'\n" "$(command -v gradle)" >> config.yml
           fdroid readmeta
           fdroid lint com.chrober.lmsmaterial.nowplaying
-          # Work around local fdroidserver's missing SOURCE_DATE_EPOCH if the
-          # repository has not been materialized yet (the build server has it).
           mkdir -p build
-          git clone --quiet --no-checkout \
-            https://github.com/chrober/lyrion-display.git \
-            build/com.chrober.lmsmaterial.nowplaying
-          git -C build/com.chrober.lmsmaterial.nowplaying checkout --quiet 35b1749c9d4036ec765aaee51b7dfa2de43ed8a1
-          # --force is limited to this deliberate QA run; --test avoids publishing.
+          git clone --quiet --no-checkout https://github.com/chrober/lyrion-display.git build/com.chrober.lmsmaterial.nowplaying
+          git -C build/com.chrober.lmsmaterial.nowplaying checkout --quiet "$SOURCE_SHA"
+          test "$(git -C build/com.chrober.lmsmaterial.nowplaying rev-parse HEAD)" = "$SOURCE_SHA"
           set -o pipefail
-          fdroid build --test --force --verbose com.chrober.lmsmaterial.nowplaying 2>&1 | tee build-preflight.log
-          # fdroidserver's --test mode can report a failed build with exit code 0.
-          # Check the actual build output rather than trusting the process status.
-          test -s tmp/com.chrober.lmsmaterial.nowplaying_8.apk
-          if grep -Eq '[1-9][0-9]* build(s)? failed' build-preflight.log; then
-            echo "::error::fdroidserver reported one or more failed builds"
-            exit 1
-          fi
-      - name: Upload diagnostic F-Droid build logs (no APK publication)
+          fdroid build --test --force --verbose com.chrober.lmsmaterial.nowplaying 2>&1 | tee exact-release-build.log
+          test -s "tmp/com.chrober.lmsmaterial.nowplaying_$VERSION_CODE.apk"
+          if grep -Eq '[1-9][0-9]* build(s)? failed' exact-release-build.log; then exit 1; fi
+      - name: Compare rebuilt APK with existing published signed APK (read-only download)
+        env:
+          VERSION_NAME: ${{ steps.pinned.outputs.version_name }}
+          VERSION_CODE: ${{ steps.pinned.outputs.version_code }}
+        shell: bash
+        run: |
+          signed="lyrion-display-v$VERSION_NAME.apk"
+          url="https://github.com/chrober/lyrion-display/releases/download/v$VERSION_NAME/$signed"
+          curl --fail --location --silent --show-error --retry 4 --retry-all-errors -o "$signed" "$url"
+          curl --fail --location --silent --show-error --retry 4 --retry-all-errors -o "$signed.sha256" "$url.sha256"
+          sha256sum -c "$signed.sha256"
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose --print-certs "$signed" | tee signed-release-cert.txt
+          grep -Fq 'Signer #1 certificate SHA-256 digest: af624ba3a730a5bf4a9d0b77e2bed2ec557744705362d4a4445e6dcb125f1dfb' signed-release-cert.txt
+          export PATH="$ANDROID_HOME/build-tools/34.0.0:$PATH"
+          apksigcopier compare --unsigned "$signed" "fdroid/tmp/com.chrober.lmsmaterial.nowplaying_$VERSION_CODE.apk"
+          sha256sum "fdroid/tmp/com.chrober.lmsmaterial.nowplaying_$VERSION_CODE.apk" | tee unsigned-apk-sha256.txt
+      - name: Upload test evidence only (never upload APK)
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: fdroid-build-preflight-logs
+          name: fdroid-local-source-build-evidence
           path: |
-            fdroid/logs/
-            fdroid/tmp/
-            fdroid/build-preflight.log
-          retention-days: 7
+            fdroid/exact-release-build.log
+            signed-release-cert.txt
+            unsigned-apk-sha256.txt
           if-no-files-found: ignore
+          retention-days: 14
+
+  fdroid-buildserver-image:
+    name: F-Droid buildserver image with Java 17 (QA only)
+    # Run on F-Droid-related PRs, or explicitly on demand. Never submit or publish.
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.buildserver_image)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install recipe and signature verification dependencies
+        run: python3 -m pip install --disable-pip-version-check PyYAML 'apksigcopier==1.1.1'
+      - name: Verify disabled recipe and extract immutable source version
+        id: pinned
+        shell: bash
+        run: |
+          python3 tools/check_fdroid_recipe.py
+          python3 - <<'PY'
+          import os, yaml
+          with open("fdroid/metadata/com.chrober.lmsmaterial.nowplaying.yml", encoding="utf-8") as f:
+              recipe = yaml.safe_load(f)
+          b = recipe["Builds"][0]
+          assert b["disable"], "Recipe must remain disabled"
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+              out.write(f"source_sha={b['commit']}\n")
+              out.write(f"version_code={b['versionCode']}\n")
+              out.write(f"version_name={b['versionName']}\n")
+          PY
+      - name: Prepare pinned release source in a normal Git clone
+        env:
+          SOURCE_SHA: ${{ steps.pinned.outputs.source_sha }}
+        shell: bash
+        run: |
+          mkdir -p fdroid/build
+          git clone --quiet --no-checkout https://github.com/chrober/lyrion-display.git fdroid/build/com.chrober.lmsmaterial.nowplaying
+          git -C fdroid/build/com.chrober.lmsmaterial.nowplaying checkout --quiet "$SOURCE_SHA"
+          test "$(git -C fdroid/build/com.chrober.lmsmaterial.nowplaying rev-parse HEAD)" = "$SOURCE_SHA"
+          # The image uses its unprivileged vagrant user, not the host runner UID.
+          chmod -R a+rwX fdroid
+          # F-Droid's documented CI image needs an fdroidserver source checkout
+          # mounted in /home/vagrant/fdroidserver to expose the 'fdroid' CLI.
+          git clone --quiet --depth=1 https://gitlab.com/fdroid/fdroidserver.git fdroidserver
+          git -C fdroidserver rev-parse HEAD | tee fdroidserver-ci-tool-revision.txt
+          chmod -R a+rX fdroidserver
+      - name: Prepare Java 17 with a self-contained CA trust store
+        shell: bash
+        run: |
+          # GitHub's Temurin lib/security/cacerts can be a symlink pointing
+          # outside JAVA_HOME. Resolve it before bind-mounting the JDK alone.
+          bundle="$RUNNER_TEMP/fdroid-jdk-17"
+          mkdir -p "$bundle"
+          cp -a "$JAVA_HOME/." "$bundle/"
+          if test -L "$bundle/lib/security/cacerts"; then
+            rm "$bundle/lib/security/cacerts"
+            cp -L "$JAVA_HOME/lib/security/cacerts" "$bundle/lib/security/cacerts"
+          fi
+          test -s "$bundle/lib/security/cacerts"
+          "$bundle/bin/java" -version
+          echo "FDROID_JAVA17_BUNDLE=$bundle" >> "$GITHUB_ENV"
+      - name: Source-build inside F-Droid's buildserver CI image
+        env:
+          VERSION_CODE: ${{ steps.pinned.outputs.version_code }}
+        shell: bash
+        run: |
+          docker run --rm --user vagrant --entrypoint /bin/bash \
+            -v "$GITHUB_WORKSPACE/fdroid:/build" -w /build \
+            -v "$GITHUB_WORKSPACE/fdroidserver:/home/vagrant/fdroidserver:ro" \
+            -v "$FDROID_JAVA17_BUNDLE:/opt/host-jdk-17:ro" \
+            -e HOME=/home/vagrant \
+            -e VERSION_CODE="$VERSION_CODE" \
+            registry.gitlab.com/fdroid/fdroidserver:buildserver-trixie \
+            -e -u -o pipefail -c '
+              . /etc/profile.d/bsenv.sh
+              export PATH="$fdroidserver:$PATH" PYTHONPATH="$fdroidserver"
+              # The host-mounted Git repositories have a different owner UID.
+              git config --global --add safe.directory /home/vagrant/fdroidserver
+              git config --global --add safe.directory /build/build/com.chrober.lmsmaterial.nowplaying
+              # The current Trixie image provides Java 21 only; the published
+              # release was compiled with Java 17. Inject Java 17 in read-only
+              # mode for a controlled reproducibility test; this does NOT prove
+              # the production F-Droid image can supply Java 17 on its own.
+              export JAVA_HOME=/opt/host-jdk-17
+              export PATH="$JAVA_HOME/bin:$PATH"
+              test -x "$JAVA_HOME/bin/java"
+              test -s "$JAVA_HOME/lib/security/cacerts"
+              java -version
+              fdroid readmeta
+              fdroid lint com.chrober.lmsmaterial.nowplaying
+              fdroid build --test --force --verbose com.chrober.lmsmaterial.nowplaying 2>&1 | tee exact-release-buildserver.log
+              test -s "tmp/com.chrober.lmsmaterial.nowplaying_$VERSION_CODE.apk"
+              if grep -Eq "[1-9][0-9]* build(s)? failed" exact-release-buildserver.log; then exit 1; fi
+            '
+      - name: Validate buildserver-image APK against existing signed release
+        env:
+          VERSION_NAME: ${{ steps.pinned.outputs.version_name }}
+          VERSION_CODE: ${{ steps.pinned.outputs.version_code }}
+        shell: bash
+        run: |
+          signed="lyrion-display-v$VERSION_NAME.apk"
+          url="https://github.com/chrober/lyrion-display/releases/download/v$VERSION_NAME/$signed"
+          curl --fail --location --silent --show-error --retry 4 --retry-all-errors -o "$signed" "$url"
+          curl --fail --location --silent --show-error --retry 4 --retry-all-errors -o "$signed.sha256" "$url.sha256"
+          sha256sum -c "$signed.sha256"
+          sdkmanager_bin="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          test -x "$sdkmanager_bin"
+          "$sdkmanager_bin" --install 'build-tools;34.0.0'
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose --print-certs "$signed" | tee signed-release-cert.txt
+          grep -Fq 'Signer #1 certificate SHA-256 digest: af624ba3a730a5bf4a9d0b77e2bed2ec557744705362d4a4445e6dcb125f1dfb' signed-release-cert.txt
+          export PATH="$ANDROID_HOME/build-tools/34.0.0:$PATH"
+          unsigned="fdroid/tmp/com.chrober.lmsmaterial.nowplaying_$VERSION_CODE.apk"
+          sha256sum "$unsigned" | tee unsigned-apk-sha256.txt
+          # Keep a diagnostic record even if the full signature comparison fails.
+          python3 - "$signed" "$unsigned" <<'PY' | tee apk-entry-comparison.txt
+          import hashlib, sys, zipfile
+          def digest(data): return hashlib.sha256(data).hexdigest()
+          with zipfile.ZipFile(sys.argv[1]) as signed, zipfile.ZipFile(sys.argv[2]) as rebuilt:
+              original = set(signed.namelist())
+              candidate = set(rebuilt.namelist())
+              print("Only in signed APK:", sorted(original - candidate))
+              print("Only in rebuilt APK:", sorted(candidate - original))
+              changed = [name for name in sorted(original & candidate)
+                         if signed.read(name) != rebuilt.read(name)]
+              print("Entries with differing uncompressed content:", len(changed))
+              for name in changed:
+                  print(name, "signed="+digest(signed.read(name)), "rebuilt="+digest(rebuilt.read(name)))
+                  if name.endswith("version-control-info.textproto"):
+                      print("  signed metadata:", signed.read(name).decode("utf-8", "replace")[:1000])
+                      print("  rebuilt metadata:", rebuilt.read(name).decode("utf-8", "replace")[:1000])
+          PY
+          apksigcopier compare --unsigned "$signed" "$unsigned"
+      - name: Upload QA logs and checksums only (never APKs)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fdroid-buildserver-image-evidence
+          path: |
+            fdroid/exact-release-buildserver.log
+            fdroidserver-ci-tool-revision.txt
+            signed-release-cert.txt
+            unsigned-apk-sha256.txt
+            apk-entry-comparison.txt
+          if-no-files-found: ignore
+          retention-days: 14

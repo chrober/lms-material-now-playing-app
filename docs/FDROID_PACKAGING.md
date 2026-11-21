@@ -17,8 +17,10 @@ documented below. It is **not** the actual v0.2.0 release.
 Before official F-Droid inclusion:
 1. **Completed locally:** exact v0.3.0 source build, published APK SHA-256,
    certificate and `apksigcopier compare --unsigned` passed (see evidence below).
-2. Confirm compatibility with F-Droid's **official buildserver** environment;
-   a passing GitHub Ubuntu source build is helpful but not equivalent.
+2. Confirm compatibility with F-Droid's **official production buildserver** environment,
+   in particular a supported way to run the Android build with Java 17. Our
+   GitHub Ubuntu and F-Droid Trixie CI-image runs passed under Java 17, but
+   these tests do not constitute an official F-Droid build.
 3. Complete the storefront screenshots, attribution and policy review.
 4. Only after verification, remove `disable:` and add the proper
    upstream-signed APK metadata; submit through an explicitly approved,
@@ -43,9 +45,43 @@ using an independent `fdroidserver 2.4.5` source scan and build.
   independent source-build output.
 
 This proves **local exact-release reproducibility** on GitHub-hosted Ubuntu.
-It does **not** prove the official F-Droid buildserver image will produce the
-same binary or that F-Droid will accept the application. The recipe
+A second independently reproducible build using F-Droid's Trixie **CI image**
+and a provided Java 17 toolchain is documented below. Neither CI test proves
+that the official production F-Droid buildserver accepts the app. The recipe
 **remains disabled** pending those checks and storefront review.
+
+## F-Droid Trixie CI-image verification — PASSED with Java 17 (21 Nov 2026)
+
+[GitHub Actions run 44897086974](https://github.com/chrober/lyrion-display/actions/runs/44897086974)
+reproduced the **exact already-published v0.3.0** in the F-Droid
+`registry.gitlab.com/fdroid/fdroidserver:buildserver-trixie` CI container
+with **Temurin Java 17 explicitly mounted into the container**.
+The source tree was checked out from its pinned tag
+(`fb4cb6359e1931519f586d6602c25e9b95e51e03`) in a normal clone.
+
+- F-Droid source scanner and `fdroid build --test --force`: **1 build succeeded**.
+- APK integrity/certificate check of the already-published GitHub release: **passed**.
+- Rebuilt unsigned APK SHA-256:
+  `4de2f0deaa2ad9edc7cff597ba60af599122a5183bc348b3107a4c6c902e5e88`.
+  This is identical to the previous successful exact-release Ubuntu build.
+- ZIP entry inspection: **0 differing common unsigned-content entries**;
+  the signed APK has only its three additional legacy signature entries.
+- `apksigcopier compare --unsigned`: **passed**.
+
+**Why Java 17 matters:** the unmodified Trixie CI image provides Java 21,
+which built the app but produced a different `classes.dex` (all other
+common APK entries were equal). With that output,
+`apksigcopier compare --unsigned` **failed**.
+The successful CI-image test provided Java 17 from the GitHub runner and
+included its CA trust store in a read-only mount. This is a deliberate
+experimental toolchain override, **not** evidence that the official
+production F-Droid buildserver itself supplies Java 17.
+
+Before submitting, establish which official F-Droid buildserver image,
+JDK and Android toolchain will be used, and demonstrate that the **actual
+supported F-Droid build recipe** can select Java 17 and reproduce this APK.
+If the production environment cannot provide Java 17, further recipe/toolchain
+work is needed. Never silently switch signing keys to bypass reproducibility.
 
 ## Build expectations
 
@@ -149,14 +185,25 @@ Without reproducible upstream signing, standard F-Droid signing uses a different
 certificate. **Switching between the GitHub and F-Droid APKs would then require
 uninstalling the app and losing its saved configuration.**
 
-## Testing
+## Repeatable QA verification without submission
 
-This repository provides a read-only preflight workflow to validate the recipe
-and its pinned source and run `fdroid readmeta` and `fdroid lint`.
-The build-server test is a separate, resource-intensive manual verification.
-Full instructions:
-- https://f-droid.org/docs/Submitting_to_F-Droid_Quick_Start_Guide/
-- https://f-droid.org/docs/Build_Metadata_Reference/
+The permanently **disabled** recipe pins the exact existing GitHub v0.3.0 release (versionCode 9), not the earlier versionCode 8 QA snapshot. The validation tool `tools/check_fdroid_recipe.py` checks the tag/source identity and refuses an enabled recipe.
+
+The workflow [F-Droid metadata and source-build preflight](../.github/workflows/fdroid-preflight.yml) provides these paths:
+
+1. **Automatic on F-Droid-related PRs:** metadata parser/linter and an isolated test inside the F-Droid `registry.gitlab.com/fdroid/fdroidserver:buildserver-trixie` CI container with an injected Java 17 runtime. It reads source SHA, version and versionCode from the disabled recipe and compares the resulting unsigned APK against the existing, checksummed, developer-signed GitHub release using `apksigcopier`.
+2. **Manual `source_build` input:** source scanner and `fdroid build --test --force` with pinned `fdroidserver 2.4.5` on GitHub-hosted Ubuntu, reproducing the previously successful test without hardcoded old QA commits.
+3. **Manual `buildserver_image` input:** explicitly rerun the isolated F-Droid CI container test without a PR.
+
+GitHub Actions → **F-Droid metadata and source-build preflight (no publishing)** → **Run workflow**. Select `main` and enable only the intended test option(s). The local Ubuntu and CI-container jobs are independent: either can be selected without the other. A test success must be confirmed in its linked workflow run rather than inferred from the existence of the job.
+
+These QA jobs have `contents: read` only, no signing secrets or GitLab token, do not change tags, do not activate the recipe, and **never submit or publish APKs**. Logs and checksum/certificate evidence are the only uploaded artifacts. The pre-existing signed GitHub APK is downloaded read-only solely for comparison.
+
+**Scope limit:** F-Droid's buildserver **CI image** uses F-Droid's provisioning but is not proof that an actual official production build or metadata review has succeeded. That verification and a suitable final listing (genuine rights-cleared screenshots, attribution and policy review) are still required before any user-approved submission.
+
+References:
+- https://f-droid.org/en/docs/Submitting_to_F-Droid_Quick_Start_Guide/
+- https://f-droid.org/en/docs/Build_Metadata_Reference/
 - https://f-droid.org/en/docs/Reproducible_Builds/
 
 ## Source/licensing and branding
