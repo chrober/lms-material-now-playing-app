@@ -187,6 +187,11 @@ jobs:
           test "$(git -C fdroid/build/com.chrober.lmsmaterial.nowplaying rev-parse HEAD)" = "$SOURCE_SHA"
           # The image uses its unprivileged vagrant user, not the host runner UID.
           chmod -R a+rwX fdroid
+          # F-Droid's documented CI image needs an fdroidserver source checkout
+          # mounted in /home/vagrant/fdroidserver to expose the 'fdroid' CLI.
+          git clone --quiet --depth=1 https://gitlab.com/fdroid/fdroidserver.git fdroidserver
+          git -C fdroidserver rev-parse HEAD | tee fdroidserver-ci-tool-revision.txt
+          chmod -R a+rX fdroidserver
       - name: Source-build inside F-Droid's buildserver CI image
         env:
           VERSION_CODE: ${{ steps.pinned.outputs.version_code }}
@@ -194,6 +199,7 @@ jobs:
         run: |
           docker run --rm --user vagrant --entrypoint /bin/bash \
             -v "$GITHUB_WORKSPACE/fdroid:/build" -w /build \
+            -v "$GITHUB_WORKSPACE/fdroidserver:/home/vagrant/fdroidserver:ro" \
             -e VERSION_CODE="$VERSION_CODE" \
             registry.gitlab.com/fdroid/fdroidserver:buildserver-trixie \
             -e -u -o pipefail -c '
@@ -231,6 +237,7 @@ jobs:
           name: fdroid-buildserver-image-evidence
           path: |
             fdroid/exact-release-buildserver.log
+            fdroidserver-ci-tool-revision.txt
             signed-release-cert.txt
             unsigned-apk-sha256.txt
           if-no-files-found: ignore
