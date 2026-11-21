@@ -209,6 +209,14 @@ jobs:
               # The host-mounted Git repositories have a different owner UID.
               git config --global --add safe.directory /home/vagrant/fdroidserver
               git config --global --add safe.directory /build/build/com.chrober.lmsmaterial.nowplaying
+              echo "Available container JDKs:"
+              ls -la /usr/lib/jvm || true
+              # Match the proven upstream release build JDK where installed.
+              if test -x /usr/lib/jvm/java-17-openjdk-amd64/bin/java; then
+                export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+                export PATH="$JAVA_HOME/bin:$PATH"
+              fi
+              java -version
               fdroid readmeta
               fdroid lint com.chrober.lmsmaterial.nowplaying
               fdroid build --test --force --verbose com.chrober.lmsmaterial.nowplaying 2>&1 | tee exact-release-buildserver.log
@@ -232,8 +240,27 @@ jobs:
           "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose --print-certs "$signed" | tee signed-release-cert.txt
           grep -Fq 'Signer #1 certificate SHA-256 digest: af624ba3a730a5bf4a9d0b77e2bed2ec557744705362d4a4445e6dcb125f1dfb' signed-release-cert.txt
           export PATH="$ANDROID_HOME/build-tools/34.0.0:$PATH"
-          apksigcopier compare --unsigned "$signed" "fdroid/tmp/com.chrober.lmsmaterial.nowplaying_$VERSION_CODE.apk"
-          sha256sum "fdroid/tmp/com.chrober.lmsmaterial.nowplaying_$VERSION_CODE.apk" | tee unsigned-apk-sha256.txt
+          unsigned="fdroid/tmp/com.chrober.lmsmaterial.nowplaying_$VERSION_CODE.apk"
+          sha256sum "$unsigned" | tee unsigned-apk-sha256.txt
+          # Keep a diagnostic record even if the full signature comparison fails.
+          python3 - "$signed" "$unsigned" <<'PY' | tee apk-entry-comparison.txt
+          import hashlib, sys, zipfile
+          def digest(data): return hashlib.sha256(data).hexdigest()
+          with zipfile.ZipFile(sys.argv[1]) as signed, zipfile.ZipFile(sys.argv[2]) as rebuilt:
+              original = set(signed.namelist())
+              candidate = set(rebuilt.namelist())
+              print("Only in signed APK:", sorted(original - candidate))
+              print("Only in rebuilt APK:", sorted(candidate - original))
+              changed = [name for name in sorted(original & candidate)
+                         if signed.read(name) != rebuilt.read(name)]
+              print("Entries with differing uncompressed content:", len(changed))
+              for name in changed:
+                  print(name, "signed="+digest(signed.read(name)), "rebuilt="+digest(rebuilt.read(name)))
+                  if name.endswith("version-control-info.textproto"):
+                      print("  signed metadata:", signed.read(name).decode("utf-8", "replace")[:1000])
+                      print("  rebuilt metadata:", rebuilt.read(name).decode("utf-8", "replace")[:1000])
+          PY
+          apksigcopier compare --unsigned "$signed" "$unsigned"
       - name: Upload QA logs and checksums only (never APKs)
         if: always()
         uses: actions/upload-artifact@v7
@@ -244,5 +271,6 @@ jobs:
             fdroidserver-ci-tool-revision.txt
             signed-release-cert.txt
             unsigned-apk-sha256.txt
+            apk-entry-comparison.txt
           if-no-files-found: ignore
           retention-days: 14
