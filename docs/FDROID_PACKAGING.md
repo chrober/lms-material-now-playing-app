@@ -12,7 +12,7 @@ Do **not** submit this entry or enable the build.
 We deliberately do not rewrite the published tag or reuse versionCode 8 for a new release.
 
 Before the first submission:
-1. Decide and create a new version (e.g. `v0.2.1`, versionCode **9** or higher) **only after QA**.
+1. Prepare **v0.3.0 / versionCode 9** on a release branch and complete [device acceptance](V0.3.0-ACCEPTANCE.md) before merging/tagging. The current disabled QA recipe remains pinned to the older test snapshot until a real v0.3.0 release exists.
 2. Make a signed GitHub release **from that exact tag**, then update this draft recipe to the tag.
 3. Remove `disable:` only after successful `fdroid build` and signature reproducibility checks.
 4. Submit the resulting metadata by a **manual**, explicitly approved GitLab merge request.

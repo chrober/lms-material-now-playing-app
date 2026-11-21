@@ -4,7 +4,7 @@
 
 A release is published when a tag beginning with `v` is pushed (for example `v0.1.0`). For GitHub-only publication without a local tag push, a push to `publish/vX.Y.Z` also builds the signed APK and creates the matching tag and GitHub Release. Both routes require the tag to match `versionName` in `app/build.gradle`.
 
-The previously published `v0.2.0` must not be rebuilt or retagged. For the next release (at least `versionCode` 9), keep the Android application ID and the existing production signing credentials unchanged.
+The previously published `v0.2.0` must not be rebuilt or retagged. For v0.3.0 use `versionCode` **9** and preserve the Android application ID and production signing credentials. The v0.3.0 candidate must pass the [device acceptance checklist](V0.3.0-ACCEPTANCE.md) before publication.
 
 ## 1. Create and safeguard your release keystore
 
