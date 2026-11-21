@@ -1,5 +1,5 @@
-# DRAFT ONLY — never submit this snapshot entry to official fdroiddata.
-# It pins an untagged, post-v0.2.0 QA snapshot to exercise fdroidserver.
+# DRAFT QA ONLY — do NOT submit to official fdroiddata.
+# Exact source for the published GitHub v0.3.0 release, awaiting independent verification.
 Categories:
   - Multimedia
 License: MIT
@@ -10,16 +10,16 @@ RepoType: git
 Repo: https://github.com/chrober/lyrion-display.git
 
 Builds:
-  - versionName: '0.2.0'
-    versionCode: 8
-    commit: 35b1749c9d4036ec765aaee51b7dfa2de43ed8a1
-    disable: 'QA snapshot after v0.2.0; replace with a newly tagged release, new versionCode and reproducibility result before submission.'
+  - versionName: '0.3.0'
+    versionCode: 9
+    commit: fb4cb6359e1931519f586d6602c25e9b95e51e03
+    disable: 'QA-only source reproducibility verification; official F-Droid buildserver and metadata approval outstanding.'
     subdir: app
     gradle:
       - 'yes'
 
-# No GitHub release tags or pushes trigger F-Droid updates.
+# Never automatically submit new versions to the official F-Droid catalog.
 AutoUpdateMode: None
 UpdateCheckMode: Static
-CurrentVersion: '0.2.0'
-CurrentVersionCode: 8
+CurrentVersion: '0.3.0'
+CurrentVersionCode: 9

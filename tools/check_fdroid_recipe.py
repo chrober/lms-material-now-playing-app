@@ -55,9 +55,10 @@ def check(path: pathlib.Path) -> None:
     assert code == int(build["versionCode"]), "Version code differs at source SHA"
     assert version == str(obj["CurrentVersion"])
     assert code == int(obj["CurrentVersionCode"])
-    # This snapshot was merged *after* v0.2.0, and is deliberately NOT that release tag.
-    released_sha = git("rev-list", "-n", "1", "refs/tags/v0.2.0")
-    assert sha != released_sha, "Do not confuse QA snapshot with published v0.2.0"
+    # The reproducibility recipe must pin the *exact published release tag*,
+    # never an unreleased QA snapshot or an unrelated branch revision.
+    tagged_sha = git("rev-list", "-n", "1", "refs/tags/v" + version)
+    assert sha == tagged_sha, "Recipe source does not match the published release tag"
     pinned_wrapper = git("show", sha + ":gradle/wrapper/gradle-wrapper.properties")
     assert "gradle-9.9.1-bin.zip" in pinned_wrapper, (
         "Pinned source commit must contain the Gradle version selection")

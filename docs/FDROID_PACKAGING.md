@@ -2,21 +2,28 @@
 
 The canonical app package name is `com.chrober.lmsmaterial.nowplaying`, despite the public name **Lyrion Display**.
 
-## Recipe status
+## Recipe status: v0.3.0 pinned, still disabled
 
-`fdroid/metadata/com.chrober.lmsmaterial.nowplaying.yml` is a **disabled review-only build** pointing at QA merge commit
-`35b1749c9d4036ec765aaee51b7dfa2de43ed8a1`. That packaging snapshot commit includes the Gradle pin and still declares
-`0.2.0` / versionCode 8, but **it is NOT the published `v0.2.0` release source**.
-Do **not** submit this entry or enable the build.
+The disabled review recipe `fdroid/metadata/com.chrober.lmsmaterial.nowplaying.yml`
+now points to the **exact published GitHub `v0.3.0` source commit**:
+`fb4cb6359e1931519f586d6602c25e9b95e51e03`, with versionName
+`0.3.0` and versionCode `9`. It deliberately remains **disabled**;
+**no F-Droid submission or external publication** has been made.
 
-We deliberately do not rewrite the published tag or reuse versionCode 8 for a new release.
+The earlier pinned QA snapshot (`35b1749…`, versionCode 8) was used
+only for the local F-Droid source-build and reproducibility experiments
+documented below. It is **not** the actual v0.2.0 release.
 
-Before the first submission:
-1. Prepare **v0.3.0 / versionCode 9** on a release branch and complete [device acceptance](V0.3.0-ACCEPTANCE.md) before merging/tagging. The current disabled QA recipe remains pinned to the older test snapshot until a real v0.3.0 release exists.
-2. Make a signed GitHub release **from that exact tag**, then update this draft recipe to the tag.
-3. Remove `disable:` only after successful `fdroid build` and signature reproducibility checks.
-4. Submit the resulting metadata by a **manual**, explicitly approved GitLab merge request.
-   Never submit or publish automatically because a GitHub release/tag was created.
+Before official F-Droid inclusion:
+1. Check the **v0.3.0** release APK and SHA-256 against a **fresh independent
+   `fdroidserver` build of the exact v0.3.0 commit** and validate its
+   production certificate via `apksigcopier compare --unsigned`.
+2. Confirm compatibility with F-Droid's **official buildserver** environment;
+   a passing GitHub Ubuntu source build is helpful but not equivalent.
+3. Complete the storefront screenshots, attribution and policy review.
+4. Only after verification, remove `disable:` and add the proper
+   upstream-signed APK metadata; submit through an explicitly approved,
+   **manual GitLab merge request**, not automatically when GitHub tags change.
 
 ## Build expectations
 
