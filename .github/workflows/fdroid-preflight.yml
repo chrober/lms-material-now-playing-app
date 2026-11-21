@@ -196,6 +196,21 @@ jobs:
           git clone --quiet --depth=1 https://gitlab.com/fdroid/fdroidserver.git fdroidserver
           git -C fdroidserver rev-parse HEAD | tee fdroidserver-ci-tool-revision.txt
           chmod -R a+rX fdroidserver
+      - name: Prepare Java 17 with a self-contained CA trust store
+        shell: bash
+        run: |
+          # GitHub's Temurin lib/security/cacerts can be a symlink pointing
+          # outside JAVA_HOME. Resolve it before bind-mounting the JDK alone.
+          bundle="$RUNNER_TEMP/fdroid-jdk-17"
+          mkdir -p "$bundle"
+          cp -a "$JAVA_HOME/." "$bundle/"
+          if test -L "$bundle/lib/security/cacerts"; then
+            rm "$bundle/lib/security/cacerts"
+            cp -L "$JAVA_HOME/lib/security/cacerts" "$bundle/lib/security/cacerts"
+          fi
+          test -s "$bundle/lib/security/cacerts"
+          "$bundle/bin/java" -version
+          echo "FDROID_JAVA17_BUNDLE=$bundle" >> "$GITHUB_ENV"
       - name: Source-build inside F-Droid's buildserver CI image
         env:
           VERSION_CODE: ${{ steps.pinned.outputs.version_code }}
@@ -204,7 +219,7 @@ jobs:
           docker run --rm --user vagrant --entrypoint /bin/bash \
             -v "$GITHUB_WORKSPACE/fdroid:/build" -w /build \
             -v "$GITHUB_WORKSPACE/fdroidserver:/home/vagrant/fdroidserver:ro" \
-            -v "$JAVA_HOME:/opt/host-jdk-17:ro" \
+            -v "$FDROID_JAVA17_BUNDLE:/opt/host-jdk-17:ro" \
             -e HOME=/home/vagrant \
             -e VERSION_CODE="$VERSION_CODE" \
             registry.gitlab.com/fdroid/fdroidserver:buildserver-trixie \
@@ -221,6 +236,7 @@ jobs:
               export JAVA_HOME=/opt/host-jdk-17
               export PATH="$JAVA_HOME/bin:$PATH"
               test -x "$JAVA_HOME/bin/java"
+              test -s "$JAVA_HOME/lib/security/cacerts"
               java -version
               fdroid readmeta
               fdroid lint com.chrober.lmsmaterial.nowplaying
