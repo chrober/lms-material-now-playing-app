@@ -145,7 +145,7 @@ jobs:
           retention-days: 14
 
   fdroid-buildserver-image:
-    name: F-Droid buildserver image reproducibility (QA only)
+    name: F-Droid buildserver image with Java 17 (QA only)
     # Run on F-Droid-related PRs, or explicitly on demand. Never submit or publish.
     if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.buildserver_image)
     runs-on: ubuntu-latest
@@ -158,6 +158,10 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
       - name: Install recipe and signature verification dependencies
         run: python3 -m pip install --disable-pip-version-check PyYAML 'apksigcopier==1.1.1'
       - name: Verify disabled recipe and extract immutable source version
@@ -200,6 +204,7 @@ jobs:
           docker run --rm --user vagrant --entrypoint /bin/bash \
             -v "$GITHUB_WORKSPACE/fdroid:/build" -w /build \
             -v "$GITHUB_WORKSPACE/fdroidserver:/home/vagrant/fdroidserver:ro" \
+            -v "$JAVA_HOME:/opt/host-jdk-17:ro" \
             -e HOME=/home/vagrant \
             -e VERSION_CODE="$VERSION_CODE" \
             registry.gitlab.com/fdroid/fdroidserver:buildserver-trixie \
@@ -209,13 +214,13 @@ jobs:
               # The host-mounted Git repositories have a different owner UID.
               git config --global --add safe.directory /home/vagrant/fdroidserver
               git config --global --add safe.directory /build/build/com.chrober.lmsmaterial.nowplaying
-              echo "Available container JDKs:"
-              ls -la /usr/lib/jvm || true
-              # Match the proven upstream release build JDK where installed.
-              if test -x /usr/lib/jvm/java-17-openjdk-amd64/bin/java; then
-                export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
-                export PATH="$JAVA_HOME/bin:$PATH"
-              fi
+              # The current Trixie image provides Java 21 only; the published
+              # release was compiled with Java 17. Inject Java 17 in read-only
+              # mode for a controlled reproducibility test; this does NOT prove
+              # the production F-Droid image can supply Java 17 on its own.
+              export JAVA_HOME=/opt/host-jdk-17
+              export PATH="$JAVA_HOME/bin:$PATH"
+              test -x "$JAVA_HOME/bin/java"
               java -version
               fdroid readmeta
               fdroid lint com.chrober.lmsmaterial.nowplaying
